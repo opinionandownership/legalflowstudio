@@ -188,7 +188,7 @@ const TYPES = {
   sale:"Sale Deed", settlement:"Settlement Deed", release:"Release Deed", gift:"Gift Deed",
   partition:"Partition Deed", will:"Will", poa:"Power of Attorney", patta:"Patta / Revenue",
   death:"Death / Legal Heir", mortgage:"MODT / Mortgage", discharge:"Discharge Receipt",
-  agreement:"Sale Agreement", ec:"Encumbrance Cert.", tax:"Tax / EB", generic:"Other"
+  agreement:"Sale Agreement", ec:"Encumbrance Cert.", tax:"Property Tax", eb:"EB Card / Receipt", generic:"Other"
 };
 const MARKS = {"":"None", yellow:"Yellow – not produced", red:"Red – exclude"};
 const HLCSS = {yellow:"#ffff00", green:"#00ff00", cyan:"#00ffff", magenta:"#ff00ff"};
@@ -423,6 +423,7 @@ function cleanDesc(s){
 
 function detectType(d){
   const s = d.toLowerCase();
+  if(/\beb\b|electricity|consumption card|current consumption|service connection|\btneb\b|tangedco/.test(s)) return "eb";
   if(/cancell?ation/.test(s) && /power|gpa|poa/.test(s)) return "generic";
   if(/patta|chitta|adangal|\btslr\b|town survey|a[- ]register/.test(s)) return "patta";
   if(/power of attorney|\bgpa\b|\bpoa\b|\bspa\b/.test(s)) return "poa";
@@ -435,7 +436,7 @@ function detectType(d){
   if(/discharge|receipt deed|\breceipt\b/.test(s) && !/tax|eb\b|electricity/.test(s)) return "discharge";
   if(/\bmodt\b|\bmod\b|mortgage|memorandum of deposit/.test(s)) return "mortgage";
   if(/encumbrance|\bec\b/.test(s)) return "ec";
-  if(/property tax|\btax\b|\beb\b|electricity/.test(s)) return "tax";
+  if(/property tax|\btax\b/.test(s)) return "tax";
   if(/sale agreement|agreement for sale|agreement of sale/.test(s)) return "agreement";
   if(/sale deed|conveyance|sale certificate/.test(s)) return "sale";
   return "generic";
@@ -579,6 +580,15 @@ function templatePara(r, isFirst, addr){
     case "mortgage": return `It appears that ${X} ${px.has} availed a loan from ${Y} and on the security mortgaged the above said property with ${Y} and executed a Memorandum of Deposit of Title Deeds vide dated ${date}${reg}.`;
     case "discharge": return `Subsequently the said mortgage was cancelled by a Discharge Receipt vide dated ${date}${reg}.`;
     case "agreement": return `Subsequently ${X} ${px.has} entered into a Sale Agreement vide dated ${date} with ${Y} in respect of ${prop}${reg} and the same needs to be registered as Sale Deed.`;
+    case "eb": {
+      // "The electricity consumption card vide Receipt [dated …,] Service No.xxxxx, in the name of …"
+      const sv = (r.desc.match(/Service\s*(?:Connection\s*)?No\.?\s*[:\-–]?\s*([0-9][0-9\-\/ ]*[0-9])/i) || [])[1];
+      const nm = p.Y && !/^\[/.test(Y) ? p.Y : "";
+      const parts = [`The electricity consumption card vide Receipt${r.date ? ` dated ${r.date}` : ""}`];
+      if(sv) parts.push(`Service No.${sv.replace(/\s+/g,"")}`);
+      if(nm) parts.push(`in the name of ${nm}`);
+      return parts.join(", ").replace(/Receipt, Service/, "Receipt Service") + ".";
+    }
     case "tax": return `${Y} has paid the Property Tax for the said property vide Receipt dated ${date} in ${py.his} name.`;
     default: return `Whereas the ${r.desc}${r.date ? ` vide dated ${r.date}` : ""} will proves it.`;
   }
@@ -686,6 +696,7 @@ RULES (follow strictly):
 7. Location is only village, taluk and district; never include flat, door, block, floor, street, colony or PIN details. Example: "situated at MIG Flat No.37/2, Flat No.2, Ground Floor, Block No.37, Anna Nagar Western Scheme, Welcome Colony, Chennai-600 101, Padi Village, Ambattur Taluk, Chennai District" becomes "situated at Padi Village, Ambattur Taluk, Chennai District".
 10. Copy names, dates, document numbers, survey numbers and extents exactly as they are written in the row, so they can be matched back to the sheet.
 8. No headings, no titles, no bullet points, no "Flowchart of title", no opinion or certificate text, no closing remarks. Do NOT add any comment about documents not being produced; the page adds that itself.
+11. EB / electricity consumption card or receipt rows: write exactly "The electricity consumption card vide Receipt Service No.<service number>, in the name of <name>." When the row gives a date, write "The electricity consumption card vide Receipt dated <date>, Service No.<service number>, in the name of <name>." Leave out the service number or the name if the row does not give it.
 9. Use the firm's punctuation style: "Mr.Name", "Mrs.Name", "M/s.Name", "S.No.", "Sq.ft.,", "vide dated", "registered as Document No.N of YYYY".
 
 ${LIBRARY}
