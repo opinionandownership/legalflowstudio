@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Legal Opinion – Flow of Title Studio</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{
+  --bg:#f4f1ea; --panel:#ffffff; --ink:#1f2328; --muted:#6b6f76; --line:#e2ddd2;
+  --accent:#7a2e1d; --accent-2:#a8452f; --soft:#faf7f1; --ok:#2f6b3a; --warn:#9a6b00;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{padding:18px 24px 12px;border-bottom:1px solid var(--line);background:#fbf9f4;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between}
+header h1{margin:0;font:600 20px/1.2 "Bookman Old Style","Bookman","URW Bookman",Georgia,serif;color:var(--accent)}
+header p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.matter{display:flex;gap:8px;align-items:center}
+.matter input{width:260px}
+main{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px;padding:18px 24px 40px}
+@media (max-width:1100px){main{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.card h2{margin:0 0 10px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:8px}
+.card h2 .n{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;letter-spacing:0}
+input[type=text],textarea,select{font:inherit;border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:#fff;color:var(--ink)}
+textarea{width:100%;resize:vertical}
+input[type=text]:focus,textarea:focus,select:focus{outline:2px solid #e9c9bd;border-color:var(--accent-2)}
+button{font:inherit;border:1px solid var(--line);background:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;color:var(--ink)}
+button:hover{border-color:#c9bfae;background:var(--soft)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{background:var(--accent-2)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.drop{border:1.5px dashed #cdbfa9;border-radius:8px;padding:18px;text-align:center;background:var(--soft);cursor:pointer}
+.drop.over{background:#f3e7dc;border-color:var(--accent-2)}
+.drop strong{color:var(--accent)}
+.hint{color:var(--muted);font-size:12px}
+.status{font-size:12.5px;margin-top:8px;min-height:18px}
+.status.ok{color:var(--ok)} .status.warn{color:var(--warn)} .status.err{color:#a0281b}
+.opts{display:flex;flex-wrap:wrap;gap:16px;margin-top:10px;font-size:13px}
+.opts label{display:flex;gap:6px;align-items:center;cursor:pointer}
+#addr{width:100%}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table.docs{border-collapse:collapse;width:100%;min-width:760px;font-size:13px}
+table.docs th{background:#f7f3ec;text-align:left;font-weight:600;font-size:12px;color:var(--muted);padding:7px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.docs td{border-bottom:1px solid #efeae0;padding:4px 5px;vertical-align:top}
+table.docs td textarea{min-height:34px;padding:4px 6px;font-size:13px;border-color:transparent;background:transparent}
+table.docs td textarea:hover{border-color:var(--line)}
+table.docs td textarea:focus{background:#fff}
+table.docs td.date textarea{width:96px}
+table.docs td.idx{color:var(--muted);text-align:center;width:28px;padding-top:9px}
+table.docs tr.m-yellow td{background:#fffbd0}
+table.docs tr.m-green td{background:#e6fbe3}
+table.docs tr.m-cyan td{background:#e0fbfb}
+table.docs tr.m-magenta td{background:#fbe3fb}
+table.docs tr.m-red td{background:#fde4e1}
+table.docs tr.m-red td textarea{text-decoration:line-through;color:#a0281b}
+table.docs select{font-size:12px;padding:3px 4px}
+.acts{white-space:nowrap}
+.acts button{padding:2px 6px;font-size:12px}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);margin-top:8px}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:4px;border:1px solid #0001}
+.drafting{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+.right{position:sticky;top:12px;align-self:start}
+@media (max-width:1100px){.right{position:static}}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px}
+.paper{background:#fff;border:1px solid var(--line);border-radius:4px;box-shadow:0 1px 3px #0000000d,0 8px 24px #0000000a;padding:42px 46px;min-height:520px;max-height:calc(100vh - 150px);overflow:auto;font-family:"Bookman Old Style","Bookman","URW Bookman L","URW Bookman",Georgia,serif;font-size:13.5px;line-height:1.5}
+@media (max-width:1100px){.paper{max-height:none}}
+.paper h3{font-size:19px;font-weight:700;text-align:center;margin:0 0 18px}
+.para{position:relative;margin:0 0 9px}
+.para p{margin:0;text-align:justify;text-indent:0}
+.para .txt{outline:none;padding:0 1px;border-radius:2px}
+.para .txt:focus{box-shadow:0 0 0 2px #e9c9bd}
+.para .cmt{font-weight:700}
+.para .ctl{position:absolute;right:-6px;top:-24px;display:none;gap:4px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:3px 4px;font-family:system-ui,sans-serif;font-size:11px;z-index:3;box-shadow:0 2px 8px #0001;align-items:center}
+.para:hover .ctl,.para:focus-within .ctl{display:flex}
+.para .ctl button{padding:1px 6px;font-size:11px}
+.para .ctl select{font-size:11px;padding:1px 2px}
+.para .ctl label{display:flex;gap:3px;align-items:center}
+.empty{color:var(--muted);font-family:system-ui,sans-serif;font-size:13px;text-align:center;padding:60px 10px}
+.chart{margin:22px auto 0;display:flex;flex-direction:column;align-items:center;font-size:12px}
+.chart .box{border:1.2px solid #333;padding:6px 10px;min-width:260px;max-width:440px;text-align:center;line-height:1.35}
+.chart .arr{font-size:16px;line-height:1;padding:3px 0}
+.pill{font-size:11px;padding:2px 8px;border-radius:20px;background:#eee8dc;color:var(--muted)}
+.pill.on{background:#e2efe3;color:var(--ok)}
+.hist-tools{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.hist-tools input{flex:1}
+.hist{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.hist .item{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #efeae0}
+.hist .item:last-child{border-bottom:0}
+.hist .item.current{background:#f7efe6}
+.hist .item .t{font-weight:600;color:var(--ink);cursor:pointer}
+.hist .item .t:hover{color:var(--accent)}
+.hist .item .m{font-size:12px;color:var(--muted)}
+.hist .item .b{display:flex;gap:4px;flex-shrink:0}
+.hist .item .b button{padding:3px 8px;font-size:12px}
+.hist .none{padding:14px;text-align:center;color:var(--muted);font-size:13px}
+dialog{border:1px solid var(--line);border-radius:10px;padding:0;max-width:560px;width:92vw}
+.modal{position:fixed;inset:0;background:#0006;display:none;place-items:center;z-index:20}
+.modal.show{display:grid}
+.modal .box{background:#fff;border-radius:10px;max-width:520px;width:92vw;padding:18px 20px}
+.modal h4{margin:0 0 8px}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Flow of Title Studio</h1>
+    <p>Legal Opinion · drafts the Flow of Title in your format: Bookman Old Style, 1.5 spacing, no indents, highlights carried over</p>
+  </div>
+  <div class="matter">
+    <input type="text" id="matter" placeholder="Matter / borrower name (used for the file name)">
+    <button id="newMatter" title="Clear everything and start a new matter">New matter</button>
+  </div>
+</header>
+
+<main>
+  <section>
+    <div class="card" id="histCard">
+      <h2>Previous flows <span class="pill" id="histCount" style="letter-spacing:0;text-transform:none"></span></h2>
+      <div class="hist-tools">
+        <input type="text" id="histSearch" placeholder="Search by matter, borrower, file or village">
+      </div>
+      <div class="hist" id="hist"><div class="none">Loading…</div></div>
+      <div class="hint" id="histNote" style="margin-top:6px"></div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">1</span> Queries sheet</h2>
+      <div class="drop" id="drop">
+        <div><strong>Drop the uploaded queries .docx here</strong> or click to choose</div>
+        <div class="hint">The list of documents table, its highlights and red text are read from the file. Red text is left out automatically.</div>
+        <input type="file" id="file" accept=".docx" hidden>
+      </div>
+      <div class="status" id="fileStatus"></div>
+      <div class="hint" style="margin-top:8px">The flow is drafted automatically as soon as a file is uploaded.</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">2</span> Property location</h2>
+      <input type="text" id="addr" placeholder="e.g. Kolathur Village, Purasawalkam Taluk, Chennai District">
+      <div class="hint" style="margin-top:6px">Only the village, taluk and district are kept. A pasted full address with flat or street details is trimmed automatically when you leave the field.</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">3</span> List of documents</h2>
+      <div class="tablewrap">
+        <table class="docs">
+          <thead><tr><th>#</th><th>Date</th><th>Document</th><th>Survey No. &amp; Extent</th><th>Mark</th><th>Type</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div class="row" style="margin-top:8px;justify-content:space-between">
+        <button id="addRow">+ Add document</button>
+        <div class="legend">
+          <span><span class="sw" style="background:#ffff00"></span>Yellow: highlighted details + comment</span>
+          <span><span class="sw" style="background:#00ff00"></span>Other colours: highlighted details only</span>
+          <span><span class="sw" style="background:#ff5a4a"></span>Red: left out</span>
+        </div>
+      </div>
+      <div class="status" id="draftStatus"></div>
+    </div>
+  </section>
+
+  <section class="right">
+    <div class="toolbar">
+      <div class="row">
+        <button class="primary" id="dl">Download Word (.docx)</button>
+        <button id="copy">Copy for Word</button>
+      </div>
+      <span class="hint">Click any paragraph to edit it. Hover for the comment and highlight controls.</span>
+    </div>
+    <div class="hint" id="layoutNote" style="margin:-4px 0 10px"></div>
+    <div class="paper" id="paper"></div>
+    <div class="status" id="outStatus"></div>
+  </section>
+</main>
+
+<div class="modal" id="modal"><div class="box"><h4 id="mTitle"></h4><div id="mBody" class="hint" style="font-size:13px"></div><div class="row" style="justify-content:flex-end;margin-top:14px"><button id="mNo">Cancel</button><button class="primary" id="mYes">OK</button></div></div></div>
+
+<script>
+"use strict";
+const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+const COMMENT = "The above document has not been produced for our perusal";
+const POA_PHRASE = "as a lawful power agent to do various acts and deeds including sale of the same property";
+const FONT = "Bookman Old Style";
+const TYPES = {
+  sale:"Sale Deed", settlement:"Settlement Deed", release:"Release Deed", gift:"Gift Deed",
+  partition:"Partition Deed", will:"Will", poa:"Power of Attorney", patta:"Patta / Revenue",
+  death:"Death / Legal Heir", mortgage:"MODT / Mortgage", discharge:"Discharge Receipt",
+  agreement:"Sale Agreement", ec:"Encumbrance Cert.", tax:"Tax / EB", generic:"Other"
+};
+const MARKS = {"":"None", yellow:"Yellow – not produced", red:"Red – exclude"};
+const HLCSS = {yellow:"#ffff00", green:"#00ff00", cyan:"#00ffff", magenta:"#ff00ff"};
+
+let state = { flowId: Math.random().toString(36).slice(2, 11), createdAt: 0, matter:"", address:"", rows:[], paras:[], chart:false, mode:"standalone" };
+let srcBuf = null, srcName = "";
+let downloads = null, sample = null, aiAbort = null;
+const $ = id => document.getElementById(id);
+const uid = () => Math.random().toString(36).slice(2, 9);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const xesc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"}[c]));
+
+/* ---------- saved flows (each person sees only their own) ---------- */
+// stored privately per person in the page's store; if that isn't available to someone, in their own browser
+let db = null, me = null, histMode = "starting", history = [], histUnsub = null;
+const LOCAL_KEY = "flowStudio.history.v1";
+const MAX_SRC_B64 = 170000;        // original sheet is kept with the flow when it is small enough
+
+function bufToB64(buf){ const u = new Uint8Array(buf); let s = ""; for(let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
+function b64ToBuf(b64){ const s = atob(b64); const u = new Uint8Array(s.length); for(let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u.buffer; }
+
+function flowRecord(){
+  const now = Date.now();
+  if(!state.createdAt) state.createdAt = now;
+  const rec = { kind:"flow", matter: state.matter || "", address: state.address || "", srcName: srcName || "",
+    rows: state.rows, paras: state.paras, count: state.paras.length, createdAt: state.createdAt, updatedAt: now };
+  let src = "";
+  if(srcBuf){ try{ src = bufToB64(srcBuf); }catch(e){ src = ""; } }
+  if(src && src.length <= MAX_SRC_B64 && JSON.stringify(rec).length + src.length < 240000) rec.src = src;
+  return JSON.parse(JSON.stringify(rec));
+}
+function localList(){ try{ const a = JSON.parse(localStorage.getItem(LOCAL_KEY) || "[]"); return Array.isArray(a) ? a : []; }catch(e){ return []; } }
+function localPut(rec){
+  let a = localList().filter(x => x.id !== rec.id); a.unshift(rec); a = a.slice(0, 60);
+  for(let tries = 0; tries < 3; tries++){
+    try{ localStorage.setItem(LOCAL_KEY, JSON.stringify(a)); return true; }
+    catch(e){ a = a.map((x, i) => i > 4 ? Object.assign({}, x, {src: undefined}) : x); if(tries === 1) a = a.slice(0, 25); }
+  }
+  return false;
+}
+function localDel(id){ try{ localStorage.setItem(LOCAL_KEY, JSON.stringify(localList().filter(x => x.id !== id))); }catch(e){} }
+
+let saveT = null, writing = false, writeAgain = false;
+function save(){ clearTimeout(saveT); saveT = setTimeout(writeFlow, 1200); }
+function saveSoon(){ save(); }
+async function flushSave(){ if(saveT){ clearTimeout(saveT); saveT = null; await writeFlow(); } }
+async function writeFlow(){
+  saveT = null;
+  if(!state.paras.length) return;                       // only generated flows go in the list
+  if(writing){ writeAgain = true; return; }             // one write at a time
+  writing = true;
+  const rec = flowRecord(); const id = state.flowId;
+  try{
+    if(histMode === "db"){
+      try{ await db.collection("data/users/" + me).doc(id).set(rec); }
+      catch(e){
+        if(e && e.code === "unavailable"){ await new Promise(r => setTimeout(r, 800 + Math.random()*800)); await db.collection("data/users/" + me).doc(id).set(rec); }
+        else throw e;
+      }
+    } else {
+      localPut(Object.assign({id}, rec));
+      history = localList(); renderHistory();
+    }
+  }catch(e){
+    if(e && e.code === "quota_exceeded"){ $("histNote").textContent = "Your saved flows are full. Delete some old flows to keep saving new ones."; }
+    else { switchToLocal("Saving to your account isn't available here, so your flows are saved in this browser only."); localPut(Object.assign({id}, rec)); history = localList(); renderHistory(); }
+  }finally{
+    writing = false;
+    if(writeAgain){ writeAgain = false; save(); }
+  }
+}
+function switchToLocal(note){
+  if(histUnsub){ try{ histUnsub(); }catch(e){} histUnsub = null; }
+  histMode = "local"; history = localList(); renderHistory();
+  if(note) $("histNote").textContent = note;
+}
+async function initHistory(){
+  try{ db = await window.claude.use("db"); }catch(e){ db = null; }
+  try{ const u = await window.claude.use("user"); me = u ? await u.id() : null; }catch(e){ me = null; }
+  if(!db || !me){ switchToLocal("Your flows are saved in this browser."); return; }
+  histMode = "db";
+  let loaded = false;
+  const timer = setTimeout(() => { if(!loaded) $("histNote").textContent = "Your saved flows can't be reached yet. They will appear when the connection returns."; }, 10000);
+  histUnsub = db.collection("data/users/" + me).orderBy("updatedAt","desc").limit(500).onSnapshot(snap => {
+    if(!snap.metadata.fromCache){ loaded = true; clearTimeout(timer); if(/can't be reached/.test($("histNote").textContent)) $("histNote").textContent = ""; }
+    history = snap.docs.map(d => Object.assign({id: d.id}, d.data())).filter(x => x.kind === "flow");
+    renderHistory();
+  }, err => { clearTimeout(timer); switchToLocal("Saving to your account isn't available here, so your flows are saved in this browser only."); });
+}
+
+function renderHistory(){
+  const box = $("hist"); const q = ($("histSearch").value || "").toLowerCase().trim();
+  const list = history.slice().sort((a,b) => (b.updatedAt||0) - (a.updatedAt||0))
+    .filter(h => !q || [h.matter, h.srcName, h.address].join(" ").toLowerCase().includes(q));
+  $("histCount").textContent = history.length ? String(history.length) : "";
+  if(histMode === "starting"){ box.innerHTML = `<div class="none">Loading…</div>`; return; }
+  if(!history.length){ box.innerHTML = `<div class="none">No flows yet. Every flow you generate is saved here automatically.</div>`; return; }
+  if(!list.length){ box.innerHTML = `<div class="none">No saved flow matches “${esc(q)}”.</div>`; return; }
+  box.innerHTML = list.map(h => {
+    const when = h.updatedAt ? new Date(h.updatedAt).toLocaleString("en-IN", {day:"2-digit", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit"}) : "";
+    const meta = [when, `${h.count || (h.paras||[]).length} paragraphs`, h.srcName || "", h.address || ""].filter(Boolean).map(esc).join(" · ");
+    return `<div class="item${h.id === state.flowId ? " current" : ""}" data-id="${esc(h.id)}">
+      <div style="min-width:0"><div class="t" data-h="open" title="Open this flow">${esc(h.matter || h.srcName || "Untitled flow")}</div><div class="m">${meta}</div></div>
+      <div class="b"><button data-h="open">Open</button><button data-h="dl">Download</button><button data-h="del" title="Delete this saved flow">✕</button></div>
+    </div>`;
+  }).join("");
+}
+async function openFlow(h){
+  await flushSave();
+  state = { flowId: h.id, createdAt: h.createdAt || Date.now(), matter: h.matter || "", address: h.address || "", rows: h.rows || [], paras: h.paras || [], chart:false, mode:"standalone" };
+  srcName = h.srcName || "";
+  srcBuf = null; if(h.src){ try{ srcBuf = b64ToBuf(h.src); }catch(e){ srcBuf = null; } }
+  syncInputs(); renderRows(); renderPaper(); renderHistory();
+  setStatus("fileStatus", h.srcName ? `Opened the saved flow for ${h.matter || h.srcName}.` + (srcBuf ? "" : " The original sheet was too large to keep with it, so re-upload it to download the full document.") : `Opened the saved flow for ${h.matter || "this matter"}.`, "ok");
+  setStatus("draftStatus",""); setStatus("outStatus","");
+}
+async function deleteFlow(h){
+  if(!(await confirmBox("Delete this saved flow?", `“${h.matter || h.srcName || "Untitled flow"}” will be removed from your list. This can't be undone.`))) return;
+  try{
+    if(histMode === "db") await db.collection("data/users/" + me).doc(h.id).delete();
+    else { localDel(h.id); history = localList(); renderHistory(); }
+  }catch(e){ $("histNote").textContent = "That flow couldn't be deleted just now. Try again."; }
+}
+
+/* ---------- capabilities ---------- */
+async function initCaps(){
+  let tries = 0;
+  while(!(window.claude && typeof window.claude.use === "function") && tries < 50){ await new Promise(r=>setTimeout(r,100)); tries++; }
+  if(window.claude && typeof window.claude.use === "function"){
+    try{ downloads = await window.claude.use("downloads"); }catch(e){ downloads = null; }
+    try{ sample = await window.claude.use("sample"); }catch(e){ sample = null; }
+  }
+  updateCaps();
+}
+function updateCaps(){
+  $("dl").disabled = false;          // the download button is always available
+}
+
+/* ---------- address ---------- */
+function simplifyAddress(s){
+  s = String(s||"").replace(/^\s*situated\s+at\s*/i,"").trim();
+  if(!s) return "";
+  const parts = s.split(/,/).map(p=>p.trim()).filter(Boolean);
+  const keep = parts.filter(p => /\b(Village|Taluk|District)\b/i.test(p)).map(p => p.replace(/\s*[-–]\s*\d{3}\s?\d{3}\b/,"").trim());
+  return keep.length ? keep.join(", ") : s;
+}
+
+/* ---------- docx reading ---------- */
+const kids = (el, name) => el ? [...el.childNodes].filter(n => n.nodeType===1 && n.localName===name) : [];
+const firstNS = (el, name) => el ? el.getElementsByTagNameNS(W, name)[0] : null;
+const wattr = (el, name) => el ? (el.getAttributeNS(W, name) || el.getAttribute("w:"+name)) : null;
+
+function hexRGB(h){ if(!h || !/^[0-9a-f]{6}$/i.test(h)) return null; return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
+function isRedHex(h){ const c = hexRGB(h); return !!c && c[0] >= 0xB0 && c[1] < 0x70 && c[2] < 0x70; }
+function fillToMark(h){
+  const c = hexRGB(h); if(!c) return "";
+  const [r,g,b] = c;
+  if(r>0xE8 && g>0xE8 && b>0xE8) return "";               // white / near white
+  if(isRedHex(h)) return "red";
+  if(r>190 && g>190 && b<140) return "yellow";
+  if(g>170 && r<150 && b<150) return "green";
+  if(g>170 && b>170 && r<150) return "cyan";
+  if(r>170 && b>170 && g<150) return "magenta";
+  return "";
+}
+function hlToMark(v){
+  if(!v || v==="none") return "";
+  v = v.toLowerCase();
+  if(v==="red" || v==="darkred") return "red";
+  if(v.includes("yellow")) return "yellow";
+  if(v.includes("green")) return "green";
+  if(v.includes("cyan")) return "cyan";
+  if(v.includes("magenta")) return "magenta";
+  return "yellow";
+}
+
+function cellInfo(tc){
+  const tcPr = kids(tc,"tcPr")[0];
+  const cellFill = fillToMark(wattr(kids(tcPr,"shd")[0],"fill"));
+  const marks = new Set(); if(cellFill && cellFill!=="red") marks.add(cellFill);
+  let text = "", redChars = 0, allChars = 0;
+  const frags = [];               // highlighted pieces of text, exactly as highlighted in the sheet
+  const ps = [...tc.getElementsByTagNameNS(W,"p")];
+  ps.forEach((p, pi) => {
+    let ptxt = "", cur = null;
+    const flush = () => { if(cur && cur.text.trim()) frags.push({text: cur.text.replace(/\s+/g," ").trim(), color: cur.color}); cur = null; };
+    for(const r of p.getElementsByTagNameNS(W,"r")){
+      const rPr = kids(r,"rPr")[0];
+      const hl = hlToMark(wattr(firstNS(rPr,"highlight"),"val"));
+      const col = wattr(firstNS(rPr,"color"),"val");
+      const shd = fillToMark(wattr(firstNS(rPr,"shd"),"fill"));
+      let t = "";
+      for(const n of r.childNodes){
+        if(n.nodeType!==1) continue;
+        if(n.localName==="t") t += n.textContent;
+        else if(n.localName==="tab") t += " ";
+        else if(n.localName==="br" || n.localName==="cr") t += " ";
+      }
+      if(!t) continue;
+      const len = t.replace(/\s/g,"").length;
+      allChars += len;
+      const red = hl==="red" || shd==="red" || isRedHex(col) || cellFill==="red";
+      if(red){ redChars += len; flush(); continue; }         // red information is dropped completely
+      const color = hl || shd || (cellFill && cellFill!=="red" ? cellFill : "");
+      if(color){ marks.add(color); if(cur && cur.color===color) cur.text += t; else { flush(); cur = {text:t, color}; } }
+      else if(cur && !t.trim()) cur.text += t; else flush();
+      ptxt += t;
+    }
+    flush();
+    if(ptxt.trim()) text += (text ? " " : "") + ptxt.trim();
+  });
+  return { text: text.replace(/\s+/g," ").trim(), marks, frags, allRed: allChars>0 && redChars===allChars, hasText: allChars>0 };
+}
+
+const DATE_RE = /\b\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}\b/;
+const SURVEY_RE = /(S\.?\s?No|Survey|T\.?S\.?\s?No|Sq\.?\s?ft|Sq\.?\s?Mtr|Cents|Acre|Plot|Flat|UDS|Extent)/i;
+const COPY_RE = /^(original|copy|photo ?copy|xerox|certified copy|true copy|attested copy)\.?$/i;
+
+// "S.No.50/1 – 35.5 Cents" → "S.No.50/1 measuring with an extent of 35.5 Cents"
+// (only a dash with a space around it, or an en/em dash, is replaced, so survey numbers like 12-3 stay as they are)
+function formatSurvey(s){
+  return String(s||"").replace(/\s*[–—]\s*|\s+-\s*|\s*-\s+/g, " measuring with an extent of ").replace(/\s{2,}/g," ").trim();
+}
+
+function cleanDesc(s){
+  return String(s||"")
+    .replace(/\b(certified\s+copy\s+of|photo\s?copy\s+of|xerox\s+copy\s+of)\s+/gi,"")
+    .replace(/\b(original|photo\s?copy|xerox(\s+copy)?)\b\s*/gi,"")
+    .replace(/\bwith\s+court\s+seal\b/gi,"")
+    .replace(/\s{2,}/g," ").replace(/^\s*[-–:]\s*/,"").trim();
+}
+
+function detectType(d){
+  const s = d.toLowerCase();
+  if(/cancell?ation/.test(s) && /power|gpa|poa/.test(s)) return "generic";
+  if(/patta|chitta|adangal|\btslr\b|town survey|a[- ]register/.test(s)) return "patta";
+  if(/power of attorney|\bgpa\b|\bpoa\b|\bspa\b/.test(s)) return "poa";
+  if(/settlement/.test(s)) return "settlement";
+  if(/release/.test(s)) return "release";
+  if(/gift/.test(s)) return "gift";
+  if(/partition/.test(s)) return "partition";
+  if(/\bwill\b/.test(s)) return "will";
+  if(/death|legal heir/.test(s)) return "death";
+  if(/discharge|receipt deed|\breceipt\b/.test(s) && !/tax|eb\b|electricity/.test(s)) return "discharge";
+  if(/\bmodt\b|\bmod\b|mortgage|memorandum of deposit/.test(s)) return "mortgage";
+  if(/encumbrance|\bec\b/.test(s)) return "ec";
+  if(/property tax|\btax\b|\beb\b|electricity/.test(s)) return "tax";
+  if(/sale agreement|agreement for sale|agreement of sale/.test(s)) return "agreement";
+  if(/sale deed|conveyance|sale certificate/.test(s)) return "sale";
+  return "generic";
+}
+
+function pickTable(doc){
+  let best = null, bestScore = 0;
+  for(const t of doc.getElementsByTagNameNS(W,"tbl")){
+    const grid = kids(t,"tr").map(tr => kids(tr,"tc").map(cellInfo));
+    const score = grid.filter(r => r.some(c => DATE_RE.test(c.text))).length;
+    if(score > bestScore){ best = grid; bestScore = score; }
+  }
+  return best;
+}
+
+function mapColumns(grid){
+  const head = grid[0].map(c => c.text.toLowerCase());
+  let date=-1, desc=-1, survey=-1, hasHeader=false;
+  head.forEach((h,i) => {
+    if(date<0 && /date/.test(h)) date=i;
+    else if(survey<0 && /survey|extent|s\.\s?no/.test(h)) survey=i;
+    else if(desc<0 && /particular|document|description|nature|details|deed/.test(h)) desc=i;
+  });
+  if(date>=0 && desc>=0 && !grid[0].some(c=>DATE_RE.test(c.text))) hasHeader = true;
+  if(!hasHeader){
+    const n = Math.max(...grid.map(r=>r.length));
+    const stats = [...Array(n)].map((_,i)=>{
+      let dates=0, surveys=0, copies=0, len=0, cnt=0, nums=0;
+      grid.forEach(r=>{ const t=(r[i]||{text:""}).text; if(!t) return; cnt++; len+=t.length;
+        if(DATE_RE.test(t) && t.length<40) dates++; if(SURVEY_RE.test(t)) surveys++; if(COPY_RE.test(t)) copies++; if(/^\d{1,3}\.?$/.test(t)) nums++; });
+      return {i, dates, surveys, copies, avg: cnt? len/cnt : 0, nums, cnt};
+    });
+    date = stats.slice().sort((a,b)=>b.dates-a.dates)[0].i;
+    const others = stats.filter(s => s.i!==date && s.copies < s.cnt/2 && s.nums < s.cnt/2);
+    desc = others.slice().sort((a,b)=>b.avg-a.avg)[0]?.i ?? -1;
+    const sv = others.filter(s=>s.i!==desc && s.i>desc).sort((a,b)=>b.surveys-a.surveys)[0];
+    survey = sv && sv.surveys>0 ? sv.i : -1;
+  }
+  return {date, desc, survey, hasHeader};
+}
+
+async function readDocx(file){
+  const buf = await file.arrayBuffer();
+  const zip = await JSZip.loadAsync(buf);
+  const f = zip.file("word/document.xml");
+  if(!f) throw new Error("This does not look like a Word .docx file.");
+  const doc = new DOMParser().parseFromString(await f.async("string"), "application/xml");
+  const grid = pickTable(doc);
+  let rows = [];
+  if(grid){
+    const m = mapColumns(grid);
+    const body = m.hasHeader ? grid.slice(1) : grid;
+    let carrySurvey = "";
+    for(const r of body){
+      const get = i => i>=0 && r[i] ? r[i] : {text:"", marks:new Set(), frags:[], allRed:false, hasText:false};
+      const d = get(m.date), ds = get(m.desc), sv = get(m.survey);
+      if(!ds.text && !d.text) continue;
+      // only the date, document and survey columns count (an Original/Copy column is ignored entirely)
+      const used = [d, ds, sv];
+      const marks = new Set(); used.forEach(c => c.marks.forEach(x => marks.add(x)));
+      const nonEmpty = r.filter(c => c.hasText);
+      const allRed = nonEmpty.length>0 && (nonEmpty.every(c=>c.allRed) || ds.allRed);
+      // the row mark only drives the comment (yellow) and exclusion (red); other colours stay on their highlighted details
+      const mark = allRed ? "red" : (marks.has("yellow") ? "yellow" : "");
+      const frags = allRed ? [] : used.flatMap(c => c.frags).map(f => ({text: cleanDesc(f.text) || f.text, color: f.color})).filter(f => f.text.replace(/[\s.,–-]/g,"").length);
+      // only a real date from the date column is used (an "Online" / "-" entry gives no date)
+      const dateTxt = DATE_RE.test(d.text) ? d.text.trim() : "";
+      const descTxt = cleanDesc(ds.text);
+      let survey = sv.text;
+      if(survey) carrySurvey = survey;
+      rows.push({ id:uid(), date: dateTxt, desc: descTxt, survey, mark, frags, type: detectType(descTxt) });
+    }
+  }
+  // address: first "situated at ... District" in the body text
+  let address = "";
+  const full = [...doc.getElementsByTagNameNS(W,"p")].map(p => [...p.getElementsByTagNameNS(W,"t")].map(t=>t.textContent).join("")).join("\n");
+  const am = full.match(/situated\s+at\s+([^\n]{4,260}?\bDistrict)\b/i);
+  if(am) address = simplifyAddress(am[1]);
+  return { buf, rows, address, foundTable: !!grid };
+}
+
+/* ---------- template drafting ---------- */
+function partiesOf(d){
+  let X="", Y="";
+  const m = d.match(/(?:executed|issued|given|granted)\s+by\s+(?:the\s+)?(.+?)\s+(?:to\s+)?(?:and\s+)?in\s+favou?r\s+of\s+(.+?)(?=\s*\(|\s+vide\b|\s+dated\b|\s+for\s+the\b|$)/i);
+  if(m){ X=m[1].trim(); Y=m[2].trim(); }
+  else{
+    const e = d.match(/(?:entered\s+(?:into\s+)?)?between\s+(.+?)\s+(?:and|along with|with)\s+(.+?)(?=\s*\(|$)/i);
+    if(e){ X=e[1].trim(); Y=e[2].trim(); }
+    const n = d.match(/in\s+the\s+name\s+of\s+(?:late\s+)?(.+?)(?=\s*\(|\s+issued\b|\s+vide\b|\s+for\b|$)/i);
+    if(n) Y = n[1].trim();
+    const ex = !m && d.match(/(?:executed|issued)\s+by\s+(?:the\s+)?(.+?)(?=\s*\(|\s+to\s+appoint|\s+vide\b|$)/i);
+    if(ex && !X) X = ex[1].trim();
+    const ap = d.match(/to\s+appoint\s+(.+?)(?=\s*\(|$)/i); if(ap) Y = ap[1].trim();
+  }
+  const dn = d.match(/Doc(?:ument)?\.?\s*No\.?\s*:?\s*(\d+)\s*(?:\/|of)\s*(\d{4})/i);
+  const pn = d.match(/Patta\s*(?:No\.?|bearing\s+No\.?)?\s*(\d+)/i);
+  const iss = d.match(/issued\s+by\s+(?:the\s+)?(.+?)(?=\s*\(|\s+vide\b|\s+dated\b|\s+to\s+|\s+in\s+favou?r|$)/i);
+  return { X, Y, docno: dn ? `Document No.${dn[1]} of ${dn[2]}` : "", patta: pn?pn[1]:"", issuer: iss?iss[1].trim():"" };
+}
+function pron(name){
+  const s = String(name||"");
+  if(/\band\b|&|others|jointly/i.test(s)) return {his:"their", he:"they", has:"have"};
+  if(/^\s*m\/s/i.test(s)) return {his:"its", he:"it", has:"has"};
+  if(/^\s*(mrs|ms|miss|smt|selvi|tmt)\b/i.test(s)) return {his:"her", he:"she", has:"has"};
+  return {his:"his", he:"he", has:"has"};
+}
+const ph = (v, label) => v && v.trim() ? v.trim() : `[${label}]`;
+
+function templatePara(r, isFirst, addr){
+  const p = partiesOf(r.desc);
+  const X = ph(p.X,"executant"), Y = ph(p.Y,"name");
+  const date = ph(r.date,"date");
+  const reg = p.docno ? ` and registered as ${p.docno}` : "";
+  const comp = r.survey ? `Comprised in ${formatSurvey(r.survey)}` : "";
+  const prop = comp ? `the property ${comp}` : "the above said property";
+  const open = `The said schedule mentioned property situated at ${ph(addr,"Village, Taluk, District")}` + (comp ? `, ${comp}` : "") + ",";
+  const py = pron(p.Y), px = pron(p.X);
+  const label = TYPES[r.type] || "document";
+
+  if(isFirst){
+    switch(r.type){
+      case "sale": return `${open} was originally owned and possessed by ${Y} through ${py.his} self-acquired property under a Sale Deed vide dated ${date}${reg} and being purchased from ${X}.`;
+      case "patta": return `${open} was originally owned and possessed by ${Y} and ${py.he} ${py.has} obtained the ${/online/i.test(r.desc) ? "Online " : ""}Patta bearing No.${ph(p.patta,"no.")} vide dated ${date}, issued by ${ph(p.issuer,"issuing authority")}.`;
+      case "settlement": case "gift": case "release": case "partition": case "will":
+        return `${open} was originally owned and possessed by ${Y} by way of ${label} vide dated ${date}${reg} executed by ${X}.`;
+      case "poa": return `${open} was originally owned and possessed by ${X} and ${px.he} ${px.has} executed a General Power of Attorney to appoint ${Y} ${POA_PHRASE}, under a General Power of Attorney Deed vide dated ${date}${reg}.`;
+      default: return `${open} is covered under the ${r.desc} vide dated ${date}.`;
+    }
+  }
+  switch(r.type){
+    case "sale": return `The said ${X} ${px.has} sold and conveyed ${prop} to and in favour of ${Y} under a Sale Deed vide dated ${date}${reg}.`;
+    case "settlement": return `The said ${X} ${px.has} settled ${prop} to and in favour of ${Y} under a Settlement Deed vide dated ${date}${reg}.`;
+    case "release": return `The said ${X} ${px.has} released ${px.his} share in ${prop} to and in favour of ${Y} under a Release Deed vide dated ${date}${reg}.`;
+    case "gift": return `The said ${X} ${px.has} gifted ${prop} to and in favour of ${Y} under a Gift Deed vide dated ${date}${reg}.`;
+    case "partition": return `Whereas ${X} have jointly entered into a family partition among themselves with regard to ${prop} by a Partition Deed vide dated ${date}${reg} and the said property was allotted to ${Y}.`;
+    case "will": return `The said ${X} ${px.has} executed a Will in respect of ${prop} to and in favour of ${Y} under a Will Deed vide dated ${date}${reg}.`;
+    case "poa": return `It appears that ${X} ${px.has} executed a General Power of Attorney for ${prop}, to appoint ${Y} ${POA_PHRASE}, under a General Power of Attorney Deed vide dated ${date}${reg}.`;
+    case "patta": return `After the said purchase it appears that mutation of Revenue records took place in the name of ${Y} and ${py.he} ${py.has} obtained the ${/online/i.test(r.desc) ? "Online " : ""}Patta bearing No.${ph(p.patta,"no.")} vide dated ${date}, issued by ${ph(p.issuer,"issuing authority")} in respect of ${prop} will proves it.`;
+    case "death": return `Subsequently ${Y} died intestate leaving behind ${py.his} legal heirs. Whereas the ${r.desc} vide dated ${date} will proves it. After the death of ${Y} ${py.his} legal heirs became the joint owners of the said property.`;
+    case "mortgage": return `It appears that ${X} ${px.has} availed a loan from ${Y} and on the security mortgaged the above said property with ${Y} and executed a Memorandum of Deposit of Title Deeds vide dated ${date}${reg}.`;
+    case "discharge": return `Subsequently the said mortgage was cancelled by a Discharge Receipt vide dated ${date}${reg}.`;
+    case "agreement": return `Subsequently ${X} ${px.has} entered into a Sale Agreement vide dated ${date} with ${Y} in respect of ${prop}${reg} and the same needs to be registered as Sale Deed.`;
+    case "tax": return `${Y} has paid the Property Tax for the said property vide Receipt dated ${date} in ${py.his} name.`;
+    default: return `Whereas the ${r.desc}${r.date ? ` vide dated ${r.date}` : ""} will proves it.`;
+  }
+}
+
+function draftRows(){ return state.rows.filter(r => r.mark !== "red" && (r.desc||"").trim()); }
+/* Highlights: only what was highlighted in the sheet is highlighted in the flow.
+   Each highlighted piece from the row is matched to the same details in the paragraph
+   (the piece itself, and any dates, document numbers, names, survey numbers and extents inside it). */
+function rowFrags(r){
+  if(!r || r.mark === "red") return [];
+  if(r.frags && r.frags.length) return r.frags;
+  if(r.mark) return [r.date, r.desc, r.survey].filter(Boolean).map(t => ({text:t, color:r.mark}));  // marked by hand: the whole row counts
+  return [];
+}
+function fragCandidates(t){
+  const out = new Set(); const s = String(t||"").replace(/\s+/g," ").trim();
+  if(s.length >= 3){ out.add(s); out.add(formatSurvey(s)); }
+  (s.match(/\b\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}\b/g)||[]).forEach(x => out.add(x));
+  for(const m of s.matchAll(/Doc(?:ument)?\.?\s*No\.?\s*:?\s*(\d+)\s*(?:\/|of)\s*(\d{4})/gi)){ out.add(m[0]); out.add(`Document No.${m[1]} of ${m[2]}`); out.add(`Doc.No.${m[1]}/${m[2]}`); }
+  for(const m of s.matchAll(/\b(?:Mr|Mrs|Ms|Miss|Dr|Smt|Selvi|Thiru|Tmt|M\/s)\.?\s?[A-Z][\w.'&-]*(?:\s+(?:[A-Z][\w.'&-]*|\(?P\)?\.?|Ltd\.?|Limited|Private|Pvt\.?))*/g)) out.add(m[0].replace(/[.,]+$/,""));
+  for(const m of s.matchAll(/\b(?:Old\s+|New\s+)?(?:T\.?\s?S\.?|R\.?\s?S\.?|S\.?)\s?Nos?\.?\s?[0-9][0-9A-Za-z\/]*(?:\s*(?:,|&|and)\s*[0-9][0-9A-Za-z\/]*)*(?:\s*\(?Part\)?)?/g)) out.add(m[0].trim());
+  for(const m of s.matchAll(/\b\d[\d,]*(?:\.\d+)?\s*(?:Sq\.?\s?ft\.?|Sq\.?\s?Feet|Sq\.?\s?Mtrs?\.?|Sq\.?\s?Meters?|Cents|Acres?|Hectares?)/gi)) out.add(m[0].replace(/[.,]+$/,""));
+  for(const m of s.matchAll(/\bPatta\s*(?:No\.?|bearing\s+No\.?)?\s*(\d+)/gi)){ out.add(m[0]); out.add(`No.${m[1]}`); }
+  for(const m of s.matchAll(/\bPlot\s*No\.?\s*[\w\/-]+/gi)) out.add(m[0]);
+  return [...out].filter(x => x.replace(/[\s.,–-]/g,"").length >= 2);
+}
+function segmentsOf(text, frags){
+  const L = text.length; if(!L) return [];
+  const col = new Array(L).fill("");
+  const low = text.toLowerCase();
+  const cands = [];
+  (frags||[]).forEach(f => (f.exact ? [f.text] : fragCandidates(f.text)).forEach(c => cands.push({c, color:f.color})));
+  cands.sort((a,b) => b.c.length - a.c.length);
+  for(const {c, color} of cands){
+    const pat = c.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/\s+/g,"\\s+");
+    let re; try{ re = new RegExp(pat, "g"); }catch(e){ continue; }
+    for(const m of low.matchAll(re)){
+      // don't light up a fragment of a longer word or number
+      const a = m.index, b = a + m[0].length;
+      if(/[a-z0-9]/i.test(text[a-1]||"") && /[a-z0-9]/i.test(text[a]||"")) continue;
+      if(/[a-z0-9]/i.test(text[b]||"") && /[a-z0-9]/i.test(text[b-1]||"")) continue;
+      for(let i=a;i<b;i++) if(!col[i]) col[i] = color;
+    }
+  }
+  const segs = []; let i = 0;
+  while(i < L){ let j = i; while(j < L && col[j] === col[i]) j++; segs.push({t: text.slice(i,j), color: col[i]}); i = j; }
+  return segs;
+}
+// any dash still sitting between a survey number and an area becomes "measuring with an extent of"
+const AREA_DASH_RE = /(?:\s*[–—]\s*|\s+-\s*|\s*-\s+)(?=(?:Acres?\s+)?\d[\d.,½¼¾\/]*\s*(?:Sq\.?\s?ft|Sq\.?\s?Feet|Sq\.?\s?Mtrs?|Sq\.?\s?Meters?|Cents?|Acres?|Hectares?|Ares?|Grounds?)\b)/gi;
+function fixAreaDashes(t){ return String(t||"").replace(AREA_DASH_RE, " measuring with an extent of ").replace(/measuring with an extent of\s+measuring with an extent of/gi, "measuring with an extent of"); }
+// no bracketed placeholders, and no date that the list of documents doesn't give for that row
+function cleanFlowText(text, r){
+  let t = String(text||"");
+  // phrases that only carry a missing detail go completely
+  t = t.replace(/,?\s*(?:and\s+)?(?:registered|regd\.?)\s+as\s+\[[^\]]*\]/gi, "")
+       .replace(/,?\s*(?:vide\s+)?dated\s+\[[^\]]*\]/gi, "")
+       .replace(/,?\s*(?:issued|executed)\s+by\s+(?:the\s+)?\[[^\]]*\]/gi, "")
+       .replace(/,?\s*bearing\s+No\.?\s*\[[^\]]*\]/gi, "")
+       .replace(/\s*\[[^\]]*\]/g, "");
+  // a date not written in this row (date column or document description) is removed with its "vide dated"
+  const source = `${r.date||""} ${r.desc||""} ${r.survey||""}`;
+  t = t.replace(/,?\s*(?:vide\s+dated|dated|vide|on)\s+(\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4})\b/gi, (m, d) => source.includes(d) ? m : "");
+  return t.replace(/\s+([,.;])/g, "$1").replace(/,\s*,/g, ",").replace(/,\s*\./g, ".").replace(/\s{2,}/g, " ").replace(/\bthe said\s+(has|have)\b/gi, "the said owner $1").trim();
+}
+function paraFromRow(r, text){ text = cleanFlowText(fixAreaDashes(text), r); return { id: uid(), row: r.id, text, frags: rowFrags(r).map(f=>({...f})), note: r.mark === "yellow" }; }
+
+function draftWithRules(){
+  const rows = draftRows();
+  if(!rows.length){ setStatus("draftStatus","Add at least one document first.","warn"); return; }
+  state.paras = rows.map((r,i) => paraFromRow(r, templatePara(r, i===0, state.address)));
+  renderPaper(); save();
+  setStatus("draftStatus", `Flow generated: ${rows.length} paragraphs. Review names, dates and extents, then download.`, "ok");
+}
+
+/* ---------- drafting ---------- */
+/* ---------- Claude drafting ---------- */
+const LIBRARY = `Reference clauses from the firm's format (follow this wording style):
+- First document (sale): "The said schedule mentioned property situated at <Village>, <Taluk>, <District>, Comprised in S.No.50/1, measuring with an extent of 35.5 cents, was originally owned and possessed by one Mr.Muthukumarasamy through his self-acquired property under a Sale Deed vide dated 15.03.1964 and registered as Document No.686 of 1964 and being purchased from Mr.SubramaniaNaicker."
+- Later sale: "The said Mr.Raju has sold and conveyed the land bearing Plot No.186, Comprised in S.No.2/2B2 Part measuring with an extent of 761.1 Sq.ft., to and in favour of Mrs.Prema under a Sale Deed vide dated 02.09.2011 and registered as Document No.5689 of 2011."
+- Settlement: "The said Mr.Bhakthavachalam has settled the land to and in favour of his daughter Mrs.Yasodhammal under a Settlement Deed vide dated 17.05.1978 and registered as Document No.774 of 1978."
+- Release: "The said Mrs.Abisghavalli & 2 Others have jointly released their respective 3/4th share of the above said Property, Comprised in Old S.No.307 & New S.No.307/2, measuring with an extent of 4 Acre 59 cents to and in favour of their Family Member Mr.Raghu, under a Release Deed vide dated 30.06.2015 and registered as Document No.10475 of 2015."
+- Partition: "Whereas Mr.Ganesan and 5 others have jointly entered into a family partition among themselves with regard to the above said property and other properties by a Partition Deed dated 20.06.2016 and registered as Document No.2297 of 2016 Whereas the properties were divided into A, B, C, D, E, F and G Schedules and the "B" schedule property ... was allotted to Mr.Ganesan."
+- Power of attorney: "It appears that Mrs.Mariyammal and 3 others have jointly executed a General Power of Attorney for the property, comprised in S.No.616/4 measuring with an extent of 65 cents, to appoint Mr.Narayanan ${POA_PHRASE}, under a General Power of Attorney Deed vide dated 23.07.1980 and registered as Document No.113 of 1980."
+- Patta: "After the said purchase it appears that mutation of Revenue records took place in the name of Mrs.Kalyani and she has obtained the Patta bearing No.2349 vide dated 22.03.2013, issued by the Zonal Deputy Tahsildar of Ponneri Taluk in respect of the property comprised in New S.No.201/5A2B measuring with an extent of 969 Sq.ft., will proves it."
+- Death & legal heirs: "Subsequently, on 31.08.2001, Mr.Palani, died intestate leaving behind his sons and daughter namely Mr.Madurai Muthu, Mr.Vembuli and Mrs.Annapoorani as his only legal heirs. Whereas the Death Certificate issued by Corporation of Chennai dated 18.12.2012 proves it. Whereas the Legal Heir Certificate issued by Tahsildar of Mambalam – Guindy Taluk dated 23.08.2013 in the name of Late Mr.Palani proves it. After the death of Late Mr.Palani his legal heirs became the joint owners of the said property."
+- Mortgage & discharge: "Whereas M/s.Tulip International has availed a loan from the M/s.The Lakshmi Vilas Bank Limited and on the security it has mortgaged the above said Property with M/s.The Lakshmi Vilas Bank Limited and it has executed a MODT Deed vide dated 05.10.2010 and registered as Document No.5349 of 2010, and subsequently cancelled the same by a Discharge Receipt vide dated 23.05.2016 and registered as Document No.3630 of 2016."
+- Will: "Further Mr.Palayam and his wife Palayammal have jointly executed a Will Deed for the above said property Comprised in New S.No.43/1 measuring with an extent of 27 Cents to in favour of their Daughters ... under a Will Deed vide dated 26.05.1982 and registered as Document No.19 of 1982."
+- Sale agreement: "Subsequently the Mr.Vasudevan and Mrs.Ushasree have jointly entered into a Sale Agreement vide dated 23.03.2026 along with Mr.Saravanan in respect of the land comprised in T.S.No.46, Block No.79 measuring with an extent of 920 Sq.ft., and the same needs to be registered as Sale Deed."
+- Property tax / EB: "Mr.Raghavan has paid the Property Tax for the period from 2021-2022 vide Receipt dated 07.05.2022 for the said Property in his name and the Current Consumption Card vide Service No.09-032-003-1068 is in the name of Mr.Raghavan for the Schedule mentioned Property."`;
+
+function buildPrompt(rows){
+  const list = rows.map((r,i) => ({ row: i+1, date: r.date, document: r.desc, survey_no_and_extent: formatSurvey(r.survey), type_hint: TYPES[r.type] }));
+  return `You draft the "Flow of Title" section of a Tamil Nadu property legal opinion for a bank, in the firm's exact house style.
+
+RULES (follow strictly):
+1. Write exactly one paragraph per row of the list below, in the same order. Use only facts in the row; never invent names, dates, document numbers or extents. Where a fact is missing, leave that phrase out completely: never write a placeholder or anything in square brackets (no "[Registration details / Document No.]", no "[date]").
+1a. Dates: use only a date given in that row (its date or its document text). For an online document (Online Patta, online EC, online receipt, e-patta and the like) with no date in the row, do not mention any date at all.
+2. The first paragraph must begin exactly with: "The said schedule mentioned property situated at ${state.address || "[Village, Taluk, District]"}, " and then continue with the first document.
+3. For the first document and for any Patta, state the survey number and extent exactly as given in survey_no_and_extent, word for word. Whenever you state the area of the property, never use a dash between the survey number and the extent: always write "measuring with an extent of" (e.g. "S.No.50/1 measuring with an extent of 35.5 Cents").
+4. Later paragraphs refer back with "The said ...", "Subsequently ...", "Whereas ...", "After the said purchase ..." as in the reference clauses.
+5. Never say whether a document is an original, a copy, photocopy or certified copy.
+6. For any power of attorney include exactly these words, character for character: "${POA_PHRASE}".
+7. Location is only village, taluk and district; never include flat, door, block, floor, street, colony or PIN details. Example: "situated at MIG Flat No.37/2, Flat No.2, Ground Floor, Block No.37, Anna Nagar Western Scheme, Welcome Colony, Chennai-600 101, Padi Village, Ambattur Taluk, Chennai District" becomes "situated at Padi Village, Ambattur Taluk, Chennai District".
+10. Copy names, dates, document numbers, survey numbers and extents exactly as they are written in the row, so they can be matched back to the sheet.
+8. No headings, no titles, no bullet points, no "Flowchart of title", no opinion or certificate text, no closing remarks. Do NOT add any comment about documents not being produced; the page adds that itself.
+9. Use the firm's punctuation style: "Mr.Name", "Mrs.Name", "M/s.Name", "S.No.", "Sq.ft.,", "vide dated", "registered as Document No.N of YYYY".
+
+${LIBRARY}
+
+LIST OF DOCUMENTS (JSON):
+${JSON.stringify(list, null, 1)}
+
+Reply with ONLY this JSON and nothing else:
+{"paragraphs":[{"row":1,"text":"..."}]}`;
+}
+
+let flowToken = 0;
+async function draftWithClaude(token){
+  if(!sample) return false;
+  const rows = draftRows();
+  aiAbort = new AbortController();
+  const ctl = aiAbort;
+  const limit = setTimeout(() => ctl.abort(), 150000);        // never wait on a prompt nobody answers
+  try{
+    const res = await sample(buildPrompt(rows), { modelTier: "complex", signal: ctl.signal, cache: false });
+    const txt = res.text || "";
+    const a = txt.indexOf("{"), b = txt.lastIndexOf("}");
+    if(a<0 || b<0) throw {message:"unreadable"};
+    const data = JSON.parse(txt.slice(a, b+1));
+    const out = [];
+    (data.paragraphs||[]).forEach(p => {
+      const r = rows[(p.row|0) - 1];
+      const text = String(p.text||"").replace(new RegExp(COMMENT.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"gi"),"").replace(/\s+/g," ").trim();
+      if(r && text) out.push(paraFromRow(r, text));
+    });
+    if(!out.length || res.truncated) throw {message:"empty"};
+    // replace the template draft only if this is still the same flow and nothing was edited meanwhile
+    if(token !== flowToken || state.paras.some(p => p.edited)) return false;
+    const keep = new Map(state.paras.map(p => [p.row, p]));
+    out.forEach(p => { const k = keep.get(p.row); if(k){ p.id = k.id; p.note = k.note; } });
+    state.paras = out; renderPaper(); save();
+    setStatus("draftStatus", `Flow generated: ${out.length} paragraphs. Review names, dates and extents, then download.`, "ok");
+    return true;
+  }catch(e){
+    return false;
+  }finally{
+    clearTimeout(limit);
+    if(aiAbort === ctl) aiAbort = null;
+  }
+}
+
+// runs automatically on upload: Claude drafts the flow in the background; if it can't, the format templates are used
+// the template flow is ready (and downloadable) at once; Claude then quietly refines it if allowed
+async function startFlow(){
+  if(aiAbort) aiAbort.abort();
+  if(!draftRows().length){ setStatus("draftStatus","No documents to draft. Upload the queries sheet or add documents.","warn"); return; }
+  const token = ++flowToken;
+  draftWithRules();
+  if(!sample && window.claude && typeof window.claude.use === "function"){ try{ sample = await window.claude.use("sample"); }catch(e){ sample = null; } }
+  draftWithClaude(token);
+}
+// keeps the flow in step with the list of documents; paragraphs you edited by hand are kept as you wrote them
+function syncFlow(){
+  if(!state.paras.length){ if(draftRows().length) draftWithRules(); return; }
+  state.paras = draftRows().map((r,i) => {
+    const ex = state.paras.find(p => p.row === r.id);
+    if(ex && ex.edited) return ex;
+    const np = paraFromRow(r, templatePara(r, i===0, state.address));
+    if(ex) np.id = ex.id;
+    return np;
+  });
+  renderPaper(); save();
+}
+
+/* ---------- rendering ---------- */
+function setStatus(id, msg, cls){ const el=$(id); el.textContent = msg||""; el.className = "status" + (cls ? " "+cls : ""); }
+
+function renderRows(){
+  const tb = $("rows");
+  if(!state.rows.length){ tb.innerHTML = `<tr><td colspan="7" class="hint" style="padding:16px;text-align:center">No documents yet. Upload the queries sheet or add them by hand.</td></tr>`; return; }
+  tb.innerHTML = state.rows.map((r,i) => `
+    <tr class="${r.mark ? "m-"+r.mark : ""}" data-id="${r.id}">
+      <td class="idx">${i+1}</td>
+      <td class="date"><textarea data-f="date" rows="1">${esc(r.date)}</textarea></td>
+      <td><textarea data-f="desc" rows="2" style="min-width:260px">${esc(r.desc)}</textarea></td>
+      <td><textarea data-f="survey" rows="2" style="min-width:170px">${esc(r.survey)}</textarea></td>
+      <td><select data-f="mark">${Object.entries(MARKS).map(([k,v])=>`<option value="${k}"${r.mark===k?" selected":""}>${v}</option>`).join("")}</select></td>
+      <td><select data-f="type">${Object.entries(TYPES).map(([k,v])=>`<option value="${k}"${r.type===k?" selected":""}>${v}</option>`).join("")}</select></td>
+      <td class="acts"><button data-a="up" title="Move up">↑</button><button data-a="down" title="Move down">↓</button><button data-a="del" title="Remove">✕</button></td>
+    </tr>`).join("");
+}
+
+function hlStyle(hl){ return hl && HLCSS[hl] ? ` style="background:${HLCSS[hl]}"` : ""; }
+function segHTML(p){ return segmentsOf(p.text, p.frags).map(s => s.color ? `<span${hlStyle(s.color)}>${esc(s.t)}</span>` : esc(s.t)).join(""); }
+// the comment is highlighted yellow only when the document is highlighted yellow in the original sheet
+function noteColor(p){ const r = state.rows.find(x => x.id === p.row); return r && r.mark === "yellow" ? "yellow" : ""; }
+
+function renderPaper(){
+  const el = $("paper");
+  if(!state.paras.length){
+    el.innerHTML = `<h3>The Flow of Title</h3><div class="empty">Your flow will appear here.<br>Upload the queries sheet and the flow is generated automatically.<br>Changes to the list of documents update the flow straight away.</div>`;
+    return;
+  }
+  el.innerHTML = `<h3>The Flow of Title</h3>` + state.paras.map((p,i) => `
+    <div class="para" data-i="${i}">
+      <div class="ctl">
+        <button data-pa="hlsel" title="Select words in this paragraph, then click to highlight them yellow">Highlight selection</button>
+        <button data-pa="hlclear" title="Remove all highlights from this paragraph">Clear highlights</button>
+        <label title="Add the not-produced comment"><input type="checkbox" data-pf="note"${p.note?" checked":""}> Not produced</label>
+        <button data-pa="up">↑</button><button data-pa="down">↓</button><button data-pa="del" title="Delete paragraph">✕</button>
+      </div>
+      <p><span class="txt" contenteditable="true" spellcheck="true">${segHTML(p)}</span>${p.note ? ` <span class="cmt"${hlStyle(noteColor(p))}>${esc(COMMENT)}</span>` : ""}</p>
+    </div>`).join("") + (state.chart ? chartHTML() : "");
+}
+
+function chartItems(){
+  return state.paras.map(p => {
+    const r = state.rows.find(x => x.id === p.row) || {desc:"", date:"", type:"generic"};
+    const pt = partiesOf(r.desc || "");
+    const who = pt.X && pt.Y ? `${pt.X} → ${pt.Y}` : (pt.Y || pt.X || "");
+    return { line1: `${r.date ? r.date + " – " : ""}${TYPES[r.type] || "Document"}${pt.docno ? " (" + pt.docno.replace("Document ","Doc.") + ")" : ""}`, line2: who };
+  });
+}
+function chartHTML(){
+  const items = chartItems();
+  return `<div class="chart">` + items.map((it,i) => `${i ? '<div class="arr">↓</div>' : ""}<div class="box"><b>${esc(it.line1)}</b>${it.line2 ? "<br>"+esc(it.line2) : ""}</div>`).join("") + `</div>`;
+}
+
+/* ---------- Word output ---------- */
+function runXml(text, o={}){
+  return `<w:r><w:rPr><w:rFonts w:ascii="${FONT}" w:hAnsi="${FONT}" w:cs="${FONT}" w:eastAsia="${FONT}"/>${o.b?"<w:b/><w:bCs/>":""}<w:sz w:val="${o.sz||20}"/><w:szCs w:val="${o.sz||20}"/>${o.hl?`<w:highlight w:val="${o.hl}"/>`:""}</w:rPr><w:t xml:space="preserve">${xesc(text)}</w:t></w:r>`;
+}
+function pXml(runs, jc="both", after=120){
+  return `<w:p><w:pPr><w:spacing w:before="0" w:after="${after}" w:line="360" w:lineRule="auto"/><w:ind w:left="0" w:right="0" w:firstLine="0"/><w:jc w:val="${jc}"/></w:pPr>${runs}</w:p>`;
+}
+function chartXml(){
+  const items = chartItems();
+  const border = v => `<w:tcBorders><w:top w:val="${v}" w:sz="8" w:space="0" w:color="000000"/><w:left w:val="${v}" w:sz="8" w:space="0" w:color="000000"/><w:bottom w:val="${v}" w:sz="8" w:space="0" w:color="000000"/><w:right w:val="${v}" w:sz="8" w:space="0" w:color="000000"/></w:tcBorders>`;
+  const cell = (inner, v) => `<w:tr><w:tc><w:tcPr><w:tcW w:w="6200" w:type="dxa"/>${border(v)}</w:tcPr>${inner}</w:tc></w:tr>`;
+  const cp = (runs) => `<w:p><w:pPr><w:spacing w:before="40" w:after="40" w:line="276" w:lineRule="auto"/><w:jc w:val="center"/></w:pPr>${runs}</w:p>`;
+  let rows = "";
+  items.forEach((it,i) => {
+    if(i) rows += cell(cp(runXml("↓",{sz:24})), "nil");
+    rows += cell(cp(runXml(it.line1,{b:true,sz:18}) + (it.line2 ? `<w:r><w:br/></w:r>` + runXml(it.line2,{sz:18}) : "")), "single");
+  });
+  return `<w:tbl><w:tblPr><w:tblW w:w="6200" w:type="dxa"/><w:jc w:val="center"/><w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid><w:gridCol w:w="6200"/></w:tblGrid>${rows}</w:tbl>` + pXml("", "left", 0);
+}
+function flowXml(){
+  let x = pXml(runXml("The Flow of Title", {b:true, sz:28}), "center", 240);
+  state.paras.forEach(p => {
+    let runs = segmentsOf(p.text, p.frags).map(s => runXml(s.t, {hl: s.color})).join("");
+    if(p.note){ runs += runXml(" "); runs += runXml(COMMENT, {b:true, hl: noteColor(p)}); }
+    x += pXml(runs);
+  });
+  if(state.chart && state.paras.length) x += chartXml();
+  return x;
+}
+
+const CT = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>`;
+const RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;
+const DOCRELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="${W}"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="${FONT}" w:hAnsi="${FONT}" w:cs="${FONT}" w:eastAsia="${FONT}"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="en-IN"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="360" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style></w:styles>`;
+
+async function buildStandalone(){
+  const zip = new JSZip();
+  zip.file("[Content_Types].xml", CT);
+  zip.file("_rels/.rels", RELS);
+  zip.file("word/_rels/document.xml.rels", DOCRELS);
+  zip.file("word/styles.xml", STYLES);
+  zip.file("word/document.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="${W}"><w:body>${flowXml()}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>`);
+  return zip.generateAsync({type:"blob", mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+}
+
+async function buildInserted(){
+  const zip = await JSZip.loadAsync(srcBuf.slice(0));
+  const doc = new DOMParser().parseFromString(await zip.file("word/document.xml").async("string"), "application/xml");
+  const body = firstNS(doc, "body");
+  const frag = new DOMParser().parseFromString(`<w:document xmlns:w="${W}"><w:body>${flowXml()}</w:body></w:document>`, "application/xml");
+  const nodes = [...firstNS(frag,"body").childNodes].map(n => doc.importNode(n, true));
+  const ptext = p => [...p.getElementsByTagNameNS(W,"t")].map(t=>t.textContent).join("").replace(/\s+/g," ").trim();
+  // find the Queries heading anywhere in the body (also inside a table or text box), then step up to its top-level block
+  let target = null, where = "between your document and the Queries";
+  const top = n => { while(n && n.parentNode && n.parentNode !== body) n = n.parentNode; return n && n.parentNode === body ? n : null; };
+  const blocks = [...body.childNodes].filter(n => n.nodeType === 1);
+  // the list of documents table = the table with the most dated rows
+  let docTbl = null, best = 0;
+  kids(body,"tbl").forEach(t => { const s = kids(t,"tr").filter(tr => DATE_RE.test([...tr.getElementsByTagNameNS(W,"t")].map(x => x.textContent).join(" "))).length; if(s > best){ best = s; docTbl = t; } });
+  const after = docTbl ? blocks.indexOf(docTbl) : -1;
+  // the Queries heading that comes after that table (not a "Legal Queries" title at the top of the sheet)
+  const heads = [...body.getElementsByTagNameNS(W,"p")]
+    .filter(p => { const t = ptext(p); return t.length <= 40 && /^(legal\s+)?quer(y|ies)\b\s*:?\s*$/i.test(t); })
+    .map(top).filter(n => n && blocks.indexOf(n) > after);
+  if(heads.length) target = heads[0];
+  else if(docTbl){ target = docTbl.nextSibling; where = "right after the list of documents (no Queries heading was found after it)"; while(target && target.nodeType !== 1) target = target.nextSibling; }
+  if(!target){ target = kids(body,"sectPr")[0] || null; where = "at the end of your document (no Queries heading was found)"; }
+  // the flow opens with an empty spacer so it never runs into the last line of the document above
+  body.insertBefore(doc.importNode(new DOMParser().parseFromString(`<w:document xmlns:w="${W}"><w:body>${pXml("","left",0)}</w:body></w:document>`,"application/xml").getElementsByTagNameNS(W,"p")[0], true), target);
+  nodes.forEach(n => body.insertBefore(n, target));
+  let out = new XMLSerializer().serializeToString(doc);
+  if(!/^<\?xml/.test(out)) out = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + out;
+  zip.file("word/document.xml", out);
+  const blob = await zip.generateAsync({type:"blob", mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+  return {blob, where};
+}
+
+function fileBase(){
+  const m = (state.matter || srcName.replace(/\.docx$/i,"") || "Legal Opinion").replace(/[\\/:*?"<>|]+/g," ").trim();
+  return m;
+}
+
+async function doDownload(){
+  if(!state.paras.length){ setStatus("outStatus","Upload the queries sheet first. The flow is generated automatically.","warn"); return; }
+  if(!downloads && window.claude && typeof window.claude.use === "function"){ try{ downloads = await window.claude.use("downloads"); }catch(e){ downloads = null; } }
+  const standalone = !(window.claude && typeof window.claude.use === "function");   // opened as a file in any browser, no sign-in
+  if(!downloads && !standalone){ setStatus("outStatus","This view can't save files. Open the page from its own claude.ai link to download, or use Copy for Word and paste into your document.","warn"); return; }
+  try{
+    let blob, name, note = "";
+    if(srcBuf){
+      const r = await buildInserted(); blob = r.blob; name = `${fileBase()} - with Flow of Title.docx`; note = ` The flow was placed ${r.where}.`;
+    } else { blob = await buildStandalone(); name = `Flow of Title - ${fileBase()}.docx`; note = " Upload the queries sheet to get the full document with the flow inside it."; }
+    if(standalone && !downloads){
+      // plain browser download: no sign-in and no prompt
+      const url = URL.createObjectURL(blob); const a = document.createElement("a");
+      a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      setStatus("outStatus", `Downloaded ${name}.${note}`, "ok"); return;
+    }
+    const res = await downloads.save({ filename: name, data: blob });
+    setStatus("outStatus", res.status === "delivered" ? "Sent." : `Saved ${name}.${note}`, "ok");
+  }catch(e){
+    if(e && e.code === "declined") setStatus("outStatus","The download was not confirmed. Click Download again whenever you're ready.","warn");
+    else if(e && e.code === "rate_limited") setStatus("outStatus","A save prompt is already open. Try again in a moment.","warn");
+    else if(e && ["unavailable","not_granted","capability_disabled","capability_removed"].includes(e.code)){ downloads = null; setStatus("outStatus","This view can't save files. Open the page from its own claude.ai link to download, or use Copy for Word.","warn"); }
+    else setStatus("outStatus", "Could not build the file: " + ((e && e.message) || e), "err");
+  }
+}
+
+async function doCopy(){
+  if(!state.paras.length){ setStatus("outStatus","Draft the flow first.","warn"); return; }
+  const ps = `font-family:'${FONT}';font-size:10pt;line-height:150%;text-align:justify;text-indent:0;margin:0 0 6pt 0`;
+  const html = `<p style="font-family:'${FONT}';font-size:14pt;font-weight:bold;text-align:center;margin:0 0 12pt 0">The Flow of Title</p>` +
+    state.paras.map(p => {
+      const bg = c => c && HLCSS[c] ? `background:${HLCSS[c]};mso-highlight:${c};` : "";
+      const body = segmentsOf(p.text, p.frags).map(s => s.color ? `<span style="${bg(s.color)}">${esc(s.t)}</span>` : esc(s.t)).join("");
+      return `<p style="${ps}">${body}${p.note ? ` <b style="${bg(noteColor(p))}">${esc(COMMENT)}</b>` : ""}</p>`; }).join("");
+  const plain = "The Flow of Title\n\n" + state.paras.map(p => p.text + (p.note ? " " + COMMENT : "")).join("\n\n");
+  try{
+    if(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+      await navigator.clipboard.write([new ClipboardItem({"text/html": new Blob([html],{type:"text/html"}), "text/plain": new Blob([plain],{type:"text/plain"})})]);
+      setStatus("outStatus","Copied with formatting and highlights. Paste into Word.","ok");
+    } else { await navigator.clipboard.writeText(plain); setStatus("outStatus","Copied as plain text.","ok"); }
+  }catch(e){
+    try{ await navigator.clipboard.writeText(plain); setStatus("outStatus","Copied as plain text (formatting could not be copied here).","ok"); }
+    catch(e2){ setStatus("outStatus","Copy was blocked in this view. Select the text in the preview and copy it by hand.","err"); }
+  }
+}
+
+/* ---------- modal ---------- */
+function confirmBox(title, body){
+  return new Promise(res => {
+    $("mTitle").textContent = title; $("mBody").textContent = body; $("modal").classList.add("show");
+    const done = v => { $("modal").classList.remove("show"); $("mYes").onclick = $("mNo").onclick = null; res(v); };
+    $("mYes").onclick = () => done(true); $("mNo").onclick = () => done(false);
+  });
+}
+
+/* ---------- events ---------- */
+async function handleFile(file){
+  if(!file) return;
+  if(!/\.docx$/i.test(file.name)){ setStatus("fileStatus","Please choose a .docx file (save .doc files as .docx first).","err"); return; }
+  setStatus("fileStatus","Reading " + file.name + "…");
+  try{
+    const r = await readDocx(file);
+    await flushSave();                                  // the flow on screen is already in Previous flows
+    srcBuf = r.buf; srcName = file.name;
+    state = { flowId: uid() + uid(), createdAt: Date.now(), matter: file.name.replace(/\.docx$/i,""), address: r.address || "", rows: r.rows, paras: [], chart:false, mode:"standalone" };
+    syncInputs(); renderRows(); renderPaper(); save();
+    const red = r.rows.filter(x=>x.mark==="red").length, yel = r.rows.filter(x=>x.mark==="yellow").length;
+    setStatus("draftStatus","");
+    if(!r.foundTable || !r.rows.length) setStatus("fileStatus", `Read ${file.name}, but no list of documents table with dates was found. Add the documents by hand and the flow will be drafted as you go.`, "warn");
+    else {
+      setStatus("fileStatus", `Read ${r.rows.length} documents from ${file.name}` + (yel ? ` · ${yel} yellow (not produced)` : "") + (red ? ` · ${red} red (left out)` : "") + (r.address ? "" : " · location not found, please type it in step 2") + `.`, "ok");
+      // generate the flow automatically as soon as the Word file is uploaded
+      startFlow();
+    }
+  }catch(e){ setStatus("fileStatus", (e && e.message) || "Could not read that file.", "err"); }
+}
+
+function syncInputs(){
+  $("matter").value = state.matter || "";
+  $("addr").value = state.address || "";
+  $("layoutNote").innerHTML = srcBuf
+    ? `Word file layout: <b>${esc(srcName)}</b> as uploaded → <b>The Flow of Title</b> → <b>Queries</b> at the end.`
+    : (state.rows.length ? `Re-upload the queries sheet to include the original document and the Queries in the Word file. Without it, the file has the flow only.` : `Word file layout: your uploaded document → The Flow of Title → Queries at the end.`);
+}
+
+function bind(){
+  const drop = $("drop"), file = $("file");
+  drop.addEventListener("click", () => file.click());
+  file.addEventListener("change", e => { handleFile(e.target.files[0]); file.value = ""; });
+  ["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", e => handleFile(e.dataTransfer.files[0]));
+
+  $("matter").addEventListener("input", e => { state.matter = e.target.value; saveSoon(); });
+  $("addr").addEventListener("input", e => { state.address = e.target.value; saveSoon(); });
+  $("addr").addEventListener("blur", e => { const s = simplifyAddress(e.target.value); if(s !== e.target.value){ e.target.value = s; state.address = s; save(); } syncFlow(); });
+
+  $("addRow").addEventListener("click", () => { state.rows.push({id:uid(), date:"", desc:"", survey:"", mark:"", type:"sale"}); renderRows(); save(); const t = $("rows").querySelector("tr:last-child textarea"); t && t.focus(); });
+  const tb = $("rows");
+  tb.addEventListener("input", e => {
+    const tr = e.target.closest("tr"); if(!tr) return; const r = state.rows.find(x => x.id === tr.dataset.id); if(!r) return;
+    const f = e.target.dataset.f; if(!f) return;
+    r[f] = e.target.value;
+    if(f === "desc" && !r._typeSet) { r.type = detectType(r.desc); const sel = tr.querySelector('select[data-f=type]'); if(sel) sel.value = r.type; }
+    saveSoon();
+  });
+  tb.addEventListener("change", e => {
+    const tr = e.target.closest("tr"); if(!tr) return; const r = state.rows.find(x => x.id === tr.dataset.id); if(!r) return;
+    const f = e.target.dataset.f;
+    if(f === "mark"){ r.mark = e.target.value; tr.className = r.mark ? "m-"+r.mark : "";
+      // a hand-changed mark recolours that row's highlighted details (or clears them for "None")
+      r.frags = r.mark && r.mark !== "red" ? (r.frags||[]).map(f => ({...f, color:r.mark})) : [];
+      state.paras.forEach(p => { if(p.row === r.id){ p.frags = rowFrags(r).map(f=>({...f})); p.note = r.mark === "yellow"; } });
+      if(r.mark === "red") state.paras = state.paras.filter(p => p.row !== r.id);
+      renderPaper(); }
+    if(f === "type"){ r.type = e.target.value; r._typeSet = true; }
+    save();
+    if(f === "mark" || f === "type" || f === "date" || f === "desc" || f === "survey") syncFlow();
+  });
+  tb.addEventListener("click", e => {
+    const b = e.target.closest("button[data-a]"); if(!b) return;
+    const tr = b.closest("tr"); const i = state.rows.findIndex(x => x.id === tr.dataset.id); if(i<0) return;
+    const a = b.dataset.a;
+    if(a === "del"){ const id = state.rows[i].id; state.rows.splice(i,1); state.paras = state.paras.filter(p => p.row !== id); renderPaper(); }
+    if(a === "up" && i>0) [state.rows[i-1], state.rows[i]] = [state.rows[i], state.rows[i-1]];
+    if(a === "down" && i<state.rows.length-1) [state.rows[i+1], state.rows[i]] = [state.rows[i], state.rows[i+1]];
+    renderRows(); save(); syncFlow();
+  });
+
+  const paper = $("paper");
+  paper.addEventListener("input", e => {
+    const t = e.target.closest && e.target.closest(".txt"); if(!t) return;
+    const i = +t.closest(".para").dataset.i; state.paras[i].text = t.innerText.replace(/\s+/g," ").trim(); state.paras[i].edited = true; saveSoon();
+  });
+  // refresh the highlights once you finish editing a paragraph
+  paper.addEventListener("focusout", e => { if(e.target.classList && e.target.classList.contains("txt")) setTimeout(() => { if(!paper.contains(document.activeElement) || !document.activeElement.classList.contains("txt")) renderPaper(); }, 0); });
+  paper.addEventListener("mousedown", e => { if(e.target.closest("button[data-pa]")) e.preventDefault(); });  // keep the text selection
+  paper.addEventListener("keydown", e => { if(e.target.classList.contains("txt") && e.key === "Enter"){ e.preventDefault(); } });
+  paper.addEventListener("paste", e => { if(!e.target.classList || !e.target.classList.contains("txt")) return; e.preventDefault(); const t = (e.clipboardData||window.clipboardData).getData("text/plain"); document.execCommand("insertText", false, t.replace(/\s+/g," ")); });
+  paper.addEventListener("change", e => {
+    const f = e.target.dataset.pf; if(!f) return; const i = +e.target.closest(".para").dataset.i;
+    state.paras[i][f] = f === "note" ? e.target.checked : e.target.value; renderPaper(); save();
+  });
+  paper.addEventListener("click", e => {
+    const b = e.target.closest("button[data-pa]"); if(!b) return; const i = +b.closest(".para").dataset.i; const a = b.dataset.pa; const P = state.paras;
+    if(a === "hlsel"){
+      const sel = String(window.getSelection ? window.getSelection() : "").replace(/\s+/g," ").trim();
+      if(!sel){ setStatus("outStatus","Select the words to highlight first.","warn"); return; }
+      P[i].frags = (P[i].frags||[]).concat([{text: sel, color: "yellow", exact: true}]); P[i].edited = true;
+    }
+    if(a === "hlclear"){ P[i].frags = []; P[i].edited = true; }
+    if(a === "del") P.splice(i,1);
+    if(a === "up" && i>0) [P[i-1],P[i]] = [P[i],P[i-1]];
+    if(a === "down" && i<P.length-1) [P[i+1],P[i]] = [P[i],P[i+1]];
+    renderPaper(); save();
+  });
+
+  $("dl").addEventListener("click", doDownload);
+  $("copy").addEventListener("click", doCopy);
+  $("newMatter").addEventListener("click", async () => {
+    await flushSave();                                  // the current flow stays in Previous flows
+    if(aiAbort) aiAbort.abort(); flowToken++;
+    state = { flowId: uid() + uid(), createdAt: 0, matter:"", address:"", rows:[], paras:[], chart:false, mode:"standalone" }; srcBuf = null; srcName = "";
+    syncInputs(); renderRows(); renderPaper(); renderHistory(); setStatus("fileStatus",""); setStatus("draftStatus",""); setStatus("outStatus","");
+  });
+  $("histSearch").addEventListener("input", renderHistory);
+  $("hist").addEventListener("click", async e => {
+    const el = e.target.closest("[data-h]"); if(!el) return;
+    const id = el.closest(".item").dataset.id; const h = history.find(x => x.id === id); if(!h) return;
+    if(el.dataset.h === "open") openFlow(h);
+    if(el.dataset.h === "dl"){ await openFlow(h); doDownload(); }
+    if(el.dataset.h === "del") deleteFlow(h);
+  });
+  window.addEventListener("pagehide", () => { if(saveT){ clearTimeout(saveT); saveT = null; writeFlow(); } });
+}
+
+// every time the page is opened it starts a new session (nothing from an earlier matter is carried over)
+syncInputs(); renderRows(); renderPaper(); bind();
+state.mode = "standalone"; state.chart = false;
+renderHistory();
+initCaps().then(initHistory);
+</script>
+</body>
+</html>
