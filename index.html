@@ -567,6 +567,17 @@ function partiesOf(d){
   const adjWord = adj ? adj[0].toUpperCase() + adj.slice(1).toLowerCase() : "";
   return { X, Y, adj: adjWord, docno: dn ? `${adjWord ? adjWord + " " : ""}Document No.${dn[1]} of ${dn[2]}` : "", patta: pn?pn[1]:"", issuer: iss?iss[1].trim():"" };
 }
+// parties of a Sale cum Construction Agreement, keeping labels such as "(Builder)" / "(Developer)" with the names
+function saleConParties(d){
+  const tag = "(?:\\s*\\((?:Builder|Developer|Promoter|Vendor|Owner|Land\\s*Owner|Purchaser|Buyer)s?\\))?";
+  let t = String(d||"").replace(/\(\s*(?:Adj\w*\.?\s*)?Doc(?:ument)?\.?\s*No[^)]*\)/gi, "").replace(/\s+vide\b.*$/i, "").replace(/\s+dated\b.*$/i, "").trim();
+  t = t.replace(/^.*?construction\s+agreement\s*/i, "").replace(/^.*?construction\s*/i, "");
+  let m = t.match(new RegExp("^(?:executed\\s+|entered\\s+(?:into\\s+)?)?(?:by|between)\\s+(.+?" + tag + ")\\s+(?:to\\s+(?:and\\s+)?in\\s+favou?r\\s+of|in\\s+favou?r\\s+of|along\\s+with|with)\\s+(.+?" + tag + ")\\s*$", "i"));
+  if(m) return { X: m[1].trim(), Y: m[2].trim() };
+  m = t.match(/^(?:entered\s+(?:into\s+)?)?between\s+(.+)\s+and\s+(.+?)$/i);      // "between A and B (Builder) and C": the last name is the purchaser
+  if(m) return { X: m[1].trim(), Y: m[2].trim() };
+  return { X: "", Y: "" };
+}
 function pron(name){
   const s = String(name||"");
   if(/\band\b|&|others|jointly/i.test(s)) return {his:"their", he:"they", has:"have"};
@@ -618,8 +629,10 @@ function templatePara(r, isFirst, addr){
     // "The said Mr.Raju has sold and conveyed the land bearing Plot No.186, Comprised in S.No.2/2B2 Part measuring with an extent of 761.1 Sq.ft., to and in favour of Mrs.Prema under a Sale Deed vide dated 02.09.2011 and registered as Document No.5689 of 2011."
     case "sale": return `The said ${X} ${px.has}${jt} sold and conveyed ${land} to and in favour of ${Y} under a Sale Deed${dated}.`;
     // "The said Mr.Bhakthavachalam … has settled the land to and in favour of her daughter Mrs.Yasodhammal under a Settlement Deed vide dated … and registered as Document No.774 of 1978."
-    // Sale cum Construction Agreement: written in the Sale Deed format
-    case "salecon": return `The said ${X} ${px.has}${jt} sold and conveyed ${land} to and in favour of ${Y} under a ${scLabel}${dated}.`;
+    // Sale cum Construction Agreement:
+    // "Subsequently the Mr.Kishore Kumar and Mr.Vijayakumar (Builder) has entered into a Sale cum Construction Agreement vide dated 19.11.2026 along with Mr.Jagathish in respect of the land Comprised in …, and the same needs to be registered as Sale Deed."
+    case "salecon": { const sc = saleConParties(r.desc), sx = sc.X || p.X, sy = sc.Y || p.Y;
+      return `Subsequently the ${ph(sx,"executant")} has entered into a ${scLabel}${dated} along with ${ph(sy,"name")} in respect of ${comp ? `the land ${comp},` : "the above said land,"} and the same needs to be registered as Sale Deed.`; }
     case "settlement": return `The said ${X} ${px.has} settled ${land} to and in favour of ${Y} under a Settlement Deed${dated}.`;
     // "The said Mrs.Abisghavalli & 2 Others have jointly released their respective 3/4th share of the above said Property, Comprised in …, to and in favour of … under a Release Deed vide dated …"
     case "release": return `The said ${X} ${px.has}${jt} released ${px.his} respective share of ${prop2} to and in favour of ${Y} under a Release Deed${dated}.`;
@@ -794,7 +807,7 @@ RULES (follow strictly):
 1. Write exactly one paragraph per row of the list below, in the same order. Use only facts in the row; never invent names, dates, document numbers or extents. Where a fact is missing, leave that phrase out completely: never write a placeholder or anything in square brackets (no "[Registration details / Document No.]", no "[date]").
 1a. Dates: use only a date given in that row (its date or its document text). For an online document (Online Patta, online EC, online receipt, e-patta and the like) with no date in the row, do not mention any date at all.
 15. Rows marked "first_in_section": true start a new chain (a new survey number section): write them in the first-paragraph format of rule 2. Do not write the section headers themselves; the page adds them.
-16. A Sale cum Construction Agreement (or Sale and Construction Agreement) is written in the Sale Deed format, naming the agreement: "The said <X> has sold and conveyed the land Comprised in …, to and in favour of <Y> under a Sale cum Construction Agreement vide dated … and registered as Document No.… of …".
+16. A Sale cum Construction Agreement (or Sale and Construction Agreement) is written exactly like this example, keeping labels such as (Builder) with the names: "Subsequently the Mr.Kishore Kumar and Mr.Vijayakumar (Builder) has entered into a Sale cum Construction Agreement vide dated 19.11.2026 along with Mr.Jagathish in respect of the land Comprised in S.No.186/4B and 186/3, as per patta New S.No.186/33, EWS Plot No.210 measuring with an extent of 880 Sq.Ft., of Land together with 635 Sq.Ft., of building, and the same needs to be registered as Sale Deed."
 2. The first paragraph (and the first paragraph of each survey number section) must follow this format exactly: "The said schedule mentioned property situated at ${state.address || "<Village, Taluk, District>"}, Comprised in <survey_no_and_extent>, was originally owned and possessed by <owner> through a <document> vide dated <date> and registered as Document No.<n> of <year> being <purchased / settled / gifted / released / allotted / issued> from <the person or office it came from>." Example: "The said schedule mentioned property situated at Padi Village, Ambattur Taluk, Chennai District, Comprised in S.No.50/1 measuring with an extent of 35.5 Cents, was originally owned and possessed by Mr.Kumar through a Sale Deed vide dated 15.03.1964 and registered as Document No.686 of 1964 being purchased from Mr.Ravi."
 14. An Adjudication / Adjudicatory power of attorney must always state its document number from the row, worded "registered as Adjudication Document No.<n> of <year>" (use "Adjudicatory" if the row says Adjudicatory), e.g. "…under the Adjudication General Power of Attorney Deed vide dated 14.01.2007 and registered as Adjudication Document No.133 of 2007."
 12. A plot number is never an extent: write "bearing Plot No.<n>", never "measuring with an extent of Plot No.<n>" (e.g. "S.No.50/1 bearing Plot No.15 measuring with an extent of 1200 Sq.ft.").
