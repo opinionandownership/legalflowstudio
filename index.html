@@ -544,7 +544,7 @@ function partiesOf(d){
   const dn = d.match(/Doc(?:ument)?\.?\s*No\.?\s*:?\s*(\d+)\s*(?:\/|of)\s*(\d{4})/i)
           || (adj ? d.match(/Adj\w*\.?\s*(?:Doc(?:ument)?\.?\s*)?No\.?\s*:?\s*(\d+)\s*(?:\/|of)\s*(\d{4})/i) : null);
   const pn = d.match(/Patta\s*(?:No\.?|bearing\s+No\.?)?\s*(\d+)/i);
-  const iss = d.match(/issued\s+by\s+(?:the\s+)?(.+?)(?=\s*\(|\s+vide\b|\s+dated\b|\s+to\s+|\s+in\s+favou?r|$)/i);
+  const iss = d.match(/issued\s+by\s+(.+?)(?=\s*\(|\s+vide\b|\s+dated\b|\s+to\s+|\s+in\s+favou?r|$)/i);
   const adjWord = adj ? adj[0].toUpperCase() + adj.slice(1).toLowerCase() : "";
   return { X, Y, adj: adjWord, docno: dn ? `${adjWord ? adjWord + " " : ""}Document No.${dn[1]} of ${dn[2]}` : "", patta: pn?pn[1]:"", issuer: iss?iss[1].trim():"" };
 }
@@ -585,20 +585,51 @@ function templatePara(r, isFirst, addr){
       default: return `${open} was originally owned and possessed by ${p.Y || p.X || "[name]"} through a ${r.desc} vide dated ${date}.`;
     }
   }
+  // later paragraphs: wording taken from the clauses in the format file (Usha Formet..3.docx)
+  const land  = comp ? `the land ${comp},` : "the above said land";
+  const prop2 = comp ? `the above said Property, ${comp},` : "the above said Property";
+  const forProp = comp ? `the property, ${comp.replace(/^Comprised/, "comprised")},` : "the above said property,";
+  const inRespect = comp ? `the property ${comp.replace(/^Comprised/, "comprised")},` : "the above said property,";
+  const dated = ` vide dated ${date}${reg}`;
+  const jt = px.has === "have" ? " jointly" : "";
   switch(r.type){
-    case "sale": return `The said ${X} ${px.has} sold and conveyed ${prop} to and in favour of ${Y} under a Sale Deed vide dated ${date}${reg}.`;
-    case "settlement": return `The said ${X} ${px.has} settled ${prop} to and in favour of ${Y} under a Settlement Deed vide dated ${date}${reg}.`;
-    case "release": return `The said ${X} ${px.has} released ${px.his} share in ${prop} to and in favour of ${Y} under a Release Deed vide dated ${date}${reg}.`;
-    case "gift": return `The said ${X} ${px.has} gifted ${prop} to and in favour of ${Y} under a Gift Deed vide dated ${date}${reg}.`;
-    case "partition": return `Whereas ${X} have jointly entered into a family partition among themselves with regard to ${prop} by a Partition Deed vide dated ${date}${reg} and the said property was allotted to ${Y}.`;
-    case "will": return `The said ${X} ${px.has} executed a Will in respect of ${prop} to and in favour of ${Y} under a Will Deed vide dated ${date}${reg}.`;
+    // "The said Mr.Raju has sold and conveyed the land bearing Plot No.186, Comprised in S.No.2/2B2 Part measuring with an extent of 761.1 Sq.ft., to and in favour of Mrs.Prema under a Sale Deed vide dated 02.09.2011 and registered as Document No.5689 of 2011."
+    case "sale": return `The said ${X} ${px.has}${jt} sold and conveyed ${land} to and in favour of ${Y} under a Sale Deed${dated}.`;
+    // "The said Mr.Bhakthavachalam … has settled the land to and in favour of her daughter Mrs.Yasodhammal under a Settlement Deed vide dated … and registered as Document No.774 of 1978."
+    case "settlement": return `The said ${X} ${px.has} settled ${land} to and in favour of ${Y} under a Settlement Deed${dated}.`;
+    // "The said Mrs.Abisghavalli & 2 Others have jointly released their respective 3/4th share of the above said Property, Comprised in …, to and in favour of … under a Release Deed vide dated …"
+    case "release": return `The said ${X} ${px.has}${jt} released ${px.his} respective share of ${prop2} to and in favour of ${Y} under a Release Deed${dated}.`;
+    case "gift": return `The said ${X} ${px.has} gifted ${land} to and in favour of ${Y} under a Gift Deed${dated}.`;
+    // "Whereas Mr.Ganesan and 5 others have jointly entered into a family partition among themselves with regard to the above said property and other properties by a Partition Deed dated … and registered as Document No.2297 of 2016 … and the "B" schedule property Comprised in … was allotted to Mr.Ganesan."
+    case "partition": return `Whereas ${X} have jointly entered into a family partition among themselves with regard to the above said property and other properties by a Partition Deed dated ${date}${reg} and the property ${comp ? comp + " " : ""}was allotted to ${Y}.`;
+    // "Further Mr.Palayam and his wife Palayammal have jointly executed a Will Deed for the above said property Comprised in New S.No.43/1 measuring with an extent of 27 Cents … to in favour of their Daughters … under a Will Deed vide dated 26.05.1982 and registered as Document No.19 of 1982."
+    case "will": return `Further ${X} ${px.has}${jt} executed a Will Deed for the above said property${comp ? " " + comp + "," : ""} to in favour of ${Y} under a Will Deed${dated}.`;
+    // "It appears that Mrs.Mariyammal and 3 others have jointly executed a General Power of Attorney for part of the property, comprised in S.No.616/4 measuring with an extent of 65 cents …, to appoint Mr.Narayanan as a lawful Power Agent … under a General Power of Attorney Deed vide dated 23.07.1980 and registered as Document No.113 of 1980."
     case "poa": { const g = `${p.adj ? p.adj + " " : ""}General Power of Attorney`;
-      return `It appears that ${X} ${px.has} executed ${p.adj ? "an" : "a"} ${g} for ${prop}, to appoint ${Y} ${POA_PHRASE}, under the ${g} Deed vide dated ${date}${reg}.`; }
-    case "patta": return `After the said purchase it appears that mutation of Revenue records took place in the name of ${Y} and ${py.he} ${py.has} obtained the ${/online/i.test(r.desc) ? "Online " : ""}Patta bearing No.${ph(p.patta,"no.")} vide dated ${date}, issued by ${ph(p.issuer,"issuing authority")} in respect of ${prop} will proves it.`;
-    case "death": return `Subsequently ${Y} died intestate leaving behind ${py.his} legal heirs. Whereas the ${r.desc} vide dated ${date} will proves it. After the death of ${Y} ${py.his} legal heirs became the joint owners of the said property.`;
-    case "mortgage": return `It appears that ${X} ${px.has} availed a loan from ${Y} and on the security mortgaged the above said property with ${Y} and executed a Memorandum of Deposit of Title Deeds vide dated ${date}${reg}.`;
-    case "discharge": return `Subsequently the said mortgage was cancelled by a Discharge Receipt vide dated ${date}${reg}.`;
-    case "agreement": return `Subsequently ${X} ${px.has} entered into a Sale Agreement vide dated ${date} with ${Y} in respect of ${prop}${reg} and the same needs to be registered as Sale Deed.`;
+      return `It appears that ${X} ${px.has}${jt} executed ${p.adj ? "an" : "a"} ${g} for ${forProp} to appoint ${Y} ${POA_PHRASE}, under ${p.adj ? "the" : "a"} ${g} Deed${dated}.`; }
+    // "After the said purchase it appears that mutation of Revenue records took place in the name of Mrs.Kalyani and she has obtained the Patta bearing No.2349 vide dated 22.03.2013, issued by the Zonal Deputy Tahsildar of Ponneri Taluk in respect of the property comprised in New S.No.201/5A2B measuring with an extent of 969 Sq.ft., will proves it."
+    case "patta": return `After the said purchase it appears that mutation of Revenue records took place in the name of ${Y} and ${py.he} ${py.has} obtained the ${/online/i.test(r.desc) ? "Online " : ""}Patta bearing No.${ph(p.patta,"no.")} vide dated ${date}, issued by ${ph(p.issuer,"issuing authority")} in respect of ${inRespect} will proves it.`;
+    // "Subsequently, on 31.08.2001, Mr.Palani, died intestate leaving behind … as his only legal heirs. Whereas the Death Certificate issued by Corporation of Chennai dated 18.12.2012 proves it. Whereas the Legal Heir Certificate issued by Tahsildar of … dated 23.08.2013 in the name of Late Mr.Palani proves it. After the death of Late Mr.Palani his legal heirs became the joint owners of the said property."
+    case "death": {
+      const isDeath = /death/i.test(r.desc), isLH = /legal\s*heir/i.test(r.desc);
+      const others = draftRows().filter(x => x.id !== r.id && x.type === "death");
+      const lhRowLater = isDeath && !isLH && others.some(x => /legal\s*heir/i.test(x.desc));   // the legal heir row closes the chain
+      const deathRowBefore = isLH && !isDeath && others.some(x => /death/i.test(x.desc));       // the death row already said "died intestate"
+      const dod = (r.desc.match(/(?:died|death|DOD'?S?)\D{0,20}?(\d{1,2}[.\/-]\d{1,2}[.\/-]\d{4})/i) || [])[1];
+      const by = p.issuer ? ` issued by ${p.issuer}` : "";
+      const out = [];
+      if(isDeath) out.push(`Subsequently,${dod ? ` on ${dod},` : ""} ${Y}, died intestate leaving behind ${py.his} legal heirs. Whereas the Death Certificate${by} dated ${date} proves it.`);
+      if(isLH) out.push(`${isDeath || deathRowBefore ? "" : `Subsequently ${Y} died intestate leaving behind ${py.his} legal heirs. `}Whereas the Legal Heir Certificate${by} dated ${date} in the name of Late ${Y.replace(/^Late\s+/i,"")} proves it.`);
+      if(!out.length) out.push(`Whereas the ${r.desc} dated ${date} proves it.`);
+      if(!lhRowLater) out.push(`After the death of Late ${Y.replace(/^Late\s+/i,"")} ${py.his} legal heirs became the joint owners of the said property.`);
+      return out.join(" ");
+    }
+    // "It appears that Mr.Marudhupandian has availed a loan from the M/s.INDO Star Capital Finance Ltd., and on the security he has mortgaged the above said Property with M/s.INDO Star Capital Finance Ltd., and he has executed a Memorandum of Deposit of Title Deeds dated 01.08.2017 and registered as Document No.4856 of 2017"
+    case "mortgage": return `It appears that ${X} ${px.has} availed a loan from the ${Y} and on the security ${px.he} ${px.has} mortgaged the above said Property with ${Y} and ${px.he} ${px.has} executed a Memorandum of Deposit of Title Deeds dated ${date}${reg}.`;
+    // "… and subsequently cancelled the same by a Discharge Receipt vide dated 29.09.2021 and registered as Document No.7007 of 2021."
+    case "discharge": return `Subsequently the said mortgage was cancelled by a Discharge Receipt${dated}.`;
+    // "Subsequently the Mr.Vasudevan and Mrs.Ushasree have jointly entered into a Sale Agreement vide dated 23.03.2026 along with Mr.Saravanan in respect of the land comprised in T.S.No.46, Block No.79 measuring with an extent of 920 Sq.ft., and the same needs to be registered as Sale Deed."
+    case "agreement": return `Subsequently the ${X} ${px.has}${jt} entered into a Sale Agreement${dated} along with ${Y} in respect of ${comp ? `the land ${comp.replace(/^Comprised/, "comprised")},` : "the above said land"} and the same needs to be registered as Sale Deed.`;
     case "declaration": return `Whereas ${p.X || p.Y || "the said owner"} ${pron(p.X || p.Y).has} executed a Declaration Deed vide dated ${date}${reg}${comp ? ` in respect of ${prop}` : ""}${reasonPhrase}.`;
     case "eb": {
       // "The electricity consumption card vide Receipt [dated …,] Service No.xxxxx, in the name of …"
@@ -609,7 +640,10 @@ function templatePara(r, isFirst, addr){
       if(nm) parts.push(`in the name of ${nm}`);
       return parts.join(", ").replace(/Receipt, Service/, "Receipt Service") + ".";
     }
-    case "tax": return `${Y} has paid the Property Tax for the said property vide Receipt dated ${date} in ${py.his} name.`;
+    // "Mrs.Shanthi had paid the Property Tax for the period from 2015-2019 vide Receipt dated 05.07.2019 for the said Property in her name."
+    case "tax": { const per = (r.desc.match(/(?:period\s+(?:from\s+)?|for\s+the\s+year\s+)(\d{4}\s*[-–]\s*\d{2,4})/i) || [])[1];
+      return `${Y} has paid the Property Tax${per ? ` for the period from ${per.replace(/\s+/g,"")}` : ""} vide Receipt dated ${date} for the said Property in ${py.his} name.`; }
+    // "Whereas the UDS Letter dated 24.01.2020 … was also produced" / "… will proves it."
     default: return `Whereas the ${r.desc}${r.date ? ` vide dated ${r.date}` : ""} will proves it.`;
   }
 }
@@ -715,6 +749,7 @@ RULES (follow strictly):
 12. A plot number is never an extent: write "bearing Plot No.<n>", never "measuring with an extent of Plot No.<n>" (e.g. "S.No.50/1 bearing Plot No.15 measuring with an extent of 1200 Sq.ft.").
 13. A Declaration Deed row comes with declaration_reason: state that reason in the paragraph, e.g. "Whereas Mr.Kumar has executed a Declaration Deed vide dated 12.02.2020 and registered as Document No.512 of 2020 regarding <reason>."
 3. For the first document and for any Patta, state the survey number and extent exactly as given in survey_no_and_extent, word for word. Whenever you state the area of the property, never use a dash between the survey number and the extent: always write "measuring with an extent of" (e.g. "S.No.50/1 measuring with an extent of 35.5 Cents").
+4a. Follow the reference clauses below word for word: same sentence structure, same connecting words ("The said … has sold and conveyed the land …, to and in favour of … under a Sale Deed vide dated …", "It appears that …", "After the said purchase it appears that mutation of Revenue records took place …", "Whereas … will proves it."), changing only the names, dates, numbers and extents from the row.
 4. Later paragraphs refer back with "The said ...", "Subsequently ...", "Whereas ...", "After the said purchase ..." as in the reference clauses.
 5. Never say whether a document is an original, a copy, photocopy or certified copy.
 6. For any power of attorney include exactly these words, character for character: "${POA_PHRASE}".
