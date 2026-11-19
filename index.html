@@ -427,7 +427,7 @@ function detectType(d){
   if(/declaration/.test(s)) return "declaration";
   if(/cancell?ation/.test(s) && /power|gpa|poa/.test(s)) return "generic";
   if(/patta|chitta|adangal|\btslr\b|town survey|a[- ]register/.test(s)) return "patta";
-  if(/power of attorney|\bgpa\b|\bpoa\b|\bspa\b/.test(s)) return "poa";
+  if(/power of attorney|\bgpa\b|\bpoa\b|\bspa\b|adjudicat\w*\s+(?:general\s+|special\s+)?power/.test(s)) return "poa";
   if(/settlement/.test(s)) return "settlement";
   if(/release/.test(s)) return "release";
   if(/gift/.test(s)) return "gift";
@@ -540,10 +540,13 @@ function partiesOf(d){
     if(ex && !X) X = ex[1].trim();
     const ap = d.match(/to\s+appoint\s+(.+?)(?=\s*\(|$)/i); if(ap) Y = ap[1].trim();
   }
-  const dn = d.match(/Doc(?:ument)?\.?\s*No\.?\s*:?\s*(\d+)\s*(?:\/|of)\s*(\d{4})/i);
+  const adj = (d.match(/\b(adjudicatory|adjudication)\b/i) || [])[1];
+  const dn = d.match(/Doc(?:ument)?\.?\s*No\.?\s*:?\s*(\d+)\s*(?:\/|of)\s*(\d{4})/i)
+          || (adj ? d.match(/Adj\w*\.?\s*(?:Doc(?:ument)?\.?\s*)?No\.?\s*:?\s*(\d+)\s*(?:\/|of)\s*(\d{4})/i) : null);
   const pn = d.match(/Patta\s*(?:No\.?|bearing\s+No\.?)?\s*(\d+)/i);
   const iss = d.match(/issued\s+by\s+(?:the\s+)?(.+?)(?=\s*\(|\s+vide\b|\s+dated\b|\s+to\s+|\s+in\s+favou?r|$)/i);
-  return { X, Y, docno: dn ? `Document No.${dn[1]} of ${dn[2]}` : "", patta: pn?pn[1]:"", issuer: iss?iss[1].trim():"" };
+  const adjWord = adj ? adj[0].toUpperCase() + adj.slice(1).toLowerCase() : "";
+  return { X, Y, adj: adjWord, docno: dn ? `${adjWord ? adjWord + " " : ""}Document No.${dn[1]} of ${dn[2]}` : "", patta: pn?pn[1]:"", issuer: iss?iss[1].trim():"" };
 }
 function pron(name){
   const s = String(name||"");
@@ -577,7 +580,8 @@ function templatePara(r, isFirst, addr){
         return `${open} was originally owned and possessed by ${Y} through a ${label}${dated} being ${VERB[r.type]} from ${X}.`;
       case "patta": return `${open} was originally owned and possessed by ${Y} through a ${/online/i.test(r.desc) ? "Online " : ""}Patta bearing No.${ph(p.patta,"no.")} vide dated ${date} being issued from ${ph(p.issuer,"issuing authority")}.`;
       case "declaration": return `${open} was originally owned and possessed by ${p.X || p.Y || "[name]"} through a Declaration Deed${dated}${reasonPhrase}.`;
-      case "poa": return `${open} was originally owned and possessed by ${X} and ${px.he} ${px.has} executed a General Power of Attorney to appoint ${Y} ${POA_PHRASE}, under a General Power of Attorney Deed vide dated ${date}${reg}.`;
+      case "poa": { const g = `${p.adj ? p.adj + " " : ""}General Power of Attorney`;
+        return `${open} was originally owned and possessed by ${X} and ${px.he} ${px.has} executed an ${g} to appoint ${Y} ${POA_PHRASE}, under the ${g} Deed vide dated ${date}${reg}.`.replace(/executed an General/, "executed a General"); }
       default: return `${open} was originally owned and possessed by ${p.Y || p.X || "[name]"} through a ${r.desc} vide dated ${date}.`;
     }
   }
@@ -588,7 +592,8 @@ function templatePara(r, isFirst, addr){
     case "gift": return `The said ${X} ${px.has} gifted ${prop} to and in favour of ${Y} under a Gift Deed vide dated ${date}${reg}.`;
     case "partition": return `Whereas ${X} have jointly entered into a family partition among themselves with regard to ${prop} by a Partition Deed vide dated ${date}${reg} and the said property was allotted to ${Y}.`;
     case "will": return `The said ${X} ${px.has} executed a Will in respect of ${prop} to and in favour of ${Y} under a Will Deed vide dated ${date}${reg}.`;
-    case "poa": return `It appears that ${X} ${px.has} executed a General Power of Attorney for ${prop}, to appoint ${Y} ${POA_PHRASE}, under a General Power of Attorney Deed vide dated ${date}${reg}.`;
+    case "poa": { const g = `${p.adj ? p.adj + " " : ""}General Power of Attorney`;
+      return `It appears that ${X} ${px.has} executed ${p.adj ? "an" : "a"} ${g} for ${prop}, to appoint ${Y} ${POA_PHRASE}, under the ${g} Deed vide dated ${date}${reg}.`; }
     case "patta": return `After the said purchase it appears that mutation of Revenue records took place in the name of ${Y} and ${py.he} ${py.has} obtained the ${/online/i.test(r.desc) ? "Online " : ""}Patta bearing No.${ph(p.patta,"no.")} vide dated ${date}, issued by ${ph(p.issuer,"issuing authority")} in respect of ${prop} will proves it.`;
     case "death": return `Subsequently ${Y} died intestate leaving behind ${py.his} legal heirs. Whereas the ${r.desc} vide dated ${date} will proves it. After the death of ${Y} ${py.his} legal heirs became the joint owners of the said property.`;
     case "mortgage": return `It appears that ${X} ${px.has} availed a loan from ${Y} and on the security mortgaged the above said property with ${Y} and executed a Memorandum of Deposit of Title Deeds vide dated ${date}${reg}.`;
@@ -706,6 +711,7 @@ RULES (follow strictly):
 1. Write exactly one paragraph per row of the list below, in the same order. Use only facts in the row; never invent names, dates, document numbers or extents. Where a fact is missing, leave that phrase out completely: never write a placeholder or anything in square brackets (no "[Registration details / Document No.]", no "[date]").
 1a. Dates: use only a date given in that row (its date or its document text). For an online document (Online Patta, online EC, online receipt, e-patta and the like) with no date in the row, do not mention any date at all.
 2. The first paragraph must follow this format exactly: "The said schedule mentioned property situated at ${state.address || "<Village, Taluk, District>"}, Comprised in <survey_no_and_extent>, was originally owned and possessed by <owner> through a <document> vide dated <date> and registered as Document No.<n> of <year> being <purchased / settled / gifted / released / allotted / issued> from <the person or office it came from>." Example: "The said schedule mentioned property situated at Padi Village, Ambattur Taluk, Chennai District, Comprised in S.No.50/1 measuring with an extent of 35.5 Cents, was originally owned and possessed by Mr.Kumar through a Sale Deed vide dated 15.03.1964 and registered as Document No.686 of 1964 being purchased from Mr.Ravi."
+14. An Adjudication / Adjudicatory power of attorney must always state its document number from the row, worded "registered as Adjudication Document No.<n> of <year>" (use "Adjudicatory" if the row says Adjudicatory), e.g. "…under the Adjudication General Power of Attorney Deed vide dated 14.01.2007 and registered as Adjudication Document No.133 of 2007."
 12. A plot number is never an extent: write "bearing Plot No.<n>", never "measuring with an extent of Plot No.<n>" (e.g. "S.No.50/1 bearing Plot No.15 measuring with an extent of 1200 Sq.ft.").
 13. A Declaration Deed row comes with declaration_reason: state that reason in the paragraph, e.g. "Whereas Mr.Kumar has executed a Declaration Deed vide dated 12.02.2020 and registered as Document No.512 of 2020 regarding <reason>."
 3. For the first document and for any Patta, state the survey number and extent exactly as given in survey_no_and_extent, word for word. Whenever you state the area of the property, never use a dash between the survey number and the extent: always write "measuring with an extent of" (e.g. "S.No.50/1 measuring with an extent of 35.5 Cents").
