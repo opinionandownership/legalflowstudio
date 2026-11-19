@@ -54,6 +54,7 @@ table.docs tr.m-green td{background:#e6fbe3}
 table.docs tr.m-cyan td{background:#e0fbfb}
 table.docs tr.m-magenta td{background:#fbe3fb}
 table.docs tr.m-red td{background:#fde4e1}
+table.docs tr.hdr td{background:#f3ece1}
 table.docs tr.m-red td textarea{text-decoration:line-through;color:#a0281b}
 table.docs select{font-size:12px;padding:3px 4px}
 .acts{white-space:nowrap}
@@ -151,7 +152,7 @@ dialog{border:1px solid var(--line);border-radius:10px;padding:0;max-width:560px
         </table>
       </div>
       <div class="row" style="margin-top:8px;justify-content:space-between">
-        <button id="addRow">+ Add document</button>
+        <div class="row"><button id="addRow">+ Add document</button><button id="addHdr" title="Add a survey number / section header">+ Add header</button></div>
         <div class="legend">
           <span><span class="sw" style="background:#ffff00"></span>Yellow: highlighted details + comment</span>
           <span><span class="sw" style="background:#00ff00"></span>Other colours: highlighted details only</span>
@@ -188,7 +189,7 @@ const TYPES = {
   sale:"Sale Deed", settlement:"Settlement Deed", release:"Release Deed", gift:"Gift Deed",
   partition:"Partition Deed", will:"Will", poa:"Power of Attorney", patta:"Patta / Revenue",
   death:"Death / Legal Heir", mortgage:"MODT / Mortgage", discharge:"Discharge Receipt",
-  agreement:"Sale Agreement", ec:"Encumbrance Cert.", tax:"Property Tax", eb:"EB Card / Receipt", declaration:"Declaration Deed", generic:"Other"
+  agreement:"Sale Agreement", ec:"Encumbrance Cert.", tax:"Property Tax", eb:"EB Card / Receipt", declaration:"Declaration Deed", salecon:"Sale cum Construction Agreement", generic:"Other"
 };
 const MARKS = {"":"None", yellow:"Yellow – not produced", red:"Red – exclude"};
 const HLCSS = {yellow:"#ffff00", green:"#00ff00", cyan:"#00ffff", magenta:"#ff00ff"};
@@ -400,7 +401,8 @@ function cellInfo(tc){
     flush();
     if(ptxt.trim()) text += (text ? " " : "") + ptxt.trim();
   });
-  return { text: text.replace(/\s+/g," ").trim(), marks, frags, allRed: allChars>0 && redChars===allChars, hasText: allChars>0 };
+  const span = parseInt(wattr(kids(tcPr,"gridSpan")[0],"val") || "1", 10) || 1;
+  return { span, text: text.replace(/\s+/g," ").trim(), marks, frags, allRed: allChars>0 && redChars===allChars, hasText: allChars>0 };
 }
 
 const DATE_RE = /\b\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}\b/;
@@ -424,6 +426,7 @@ function cleanDesc(s){
 function detectType(d){
   const s = d.toLowerCase();
   if(/\beb\b|electricity|consumption card|current consumption|service connection|\btneb\b|tangedco/.test(s)) return "eb";
+  if(/sale\s*(?:cum|and|&|-)\s*construction|construction\s*(?:cum|and|&)\s*sale|agreement\s+for\s+sale[\s,]+(?:development\s+and\s+)?construction/.test(s)) return "salecon";
   if(/declaration/.test(s)) return "declaration";
   if(/cancell?ation/.test(s) && /power|gpa|poa/.test(s)) return "generic";
   if(/patta|chitta|adangal|\btslr\b|town survey|a[- ]register/.test(s)) return "patta";
@@ -491,7 +494,21 @@ async function readDocx(file){
     const m = mapColumns(grid);
     const body = m.hasHeader ? grid.slice(1) : grid;
     let carrySurvey = "";
+    const maxCols = Math.max(...grid.map(x => x.reduce((n, c) => n + (c.span||1), 0)));
     for(const r of body){
+      // a header row for a survey number / section: one text across the row (often a merged cell), no date, not a document
+      const filled = r.filter(c => c.hasText && c.text);
+      const texts = [...new Set(filled.map(c => c.text))];
+      if(texts.length === 1){
+        const one = texts[0], cell = filled[0], at = r.indexOf(cell);
+        const merged = (cell.span||1) > 1 && r.length < maxCols;
+        const headWords = /^(for\s+|in\s+)?(common|s\.?\s?nos?\b|survey|t\.?\s?s\.?\s?nos?|r\.?\s?s\.?\s?nos?|old\s+s|new\s+s|item|schedule|plot|flat|block|door|[a-h]\s*[-–]?\s*schedule|property|land)/i.test(one);
+        const docWords = /\b(deed|patta|chitta|certificate|receipt|agreement|order|letter|card|tax|plan|approval|ec\b|encumbrance|will|power|modt|mortgage|gazette|register)\b/i.test(one);
+        if(!DATE_RE.test(one) && one.length <= 140 && !docWords && (merged || headWords || (filled.length === 1 && at !== m.desc))){
+          if(!cell.allRed) rows.push({ id:uid(), kind:"header", text: one, mark: "", frags: (cell.frags||[]).map(f => ({...f})), type:"header" });
+          continue;
+        }
+      }
       const get = i => i>=0 && r[i] ? r[i] : {text:"", marks:new Set(), frags:[], allRed:false, hasText:false};
       const d = get(m.date), ds = get(m.desc), sv = get(m.survey);
       if(!ds.text && !d.text) continue;
@@ -539,6 +556,8 @@ function partiesOf(d){
     const ex = !m && d.match(/(?:executed|issued)\s+by\s+(?:the\s+)?(.+?)(?=\s*\(|\s+to\s+appoint|\s+vide\b|$)/i);
     if(ex && !X) X = ex[1].trim();
     const ap = d.match(/to\s+appoint\s+(.+?)(?=\s*\(|$)/i); if(ap) Y = ap[1].trim();
+    // the appointed person's name only: the "as a lawful power agent …" words come from the format, not the list
+    Y = Y.replace(/\s+(?:as\s+(?:a|an|his|her|their|the)\s+)?(?:lawful\s+)?power\s+agent\b.*$/i, "").trim();
   }
   const adj = (d.match(/\b(adjudicatory|adjudication)\b/i) || [])[1];
   const dn = d.match(/Doc(?:ument)?\.?\s*No\.?\s*:?\s*(\d+)\s*(?:\/|of)\s*(\d{4})/i)
@@ -567,6 +586,9 @@ function templatePara(r, isFirst, addr){
   const open = `The said schedule mentioned property situated at ${ph(addr,"Village, Taluk, District")}` + (comp ? `, ${comp}` : "") + ",";
   const py = pron(p.Y), px = pron(p.X);
   const label = TYPES[r.type] || "document";
+  // the agreement's name as written in the list, e.g. "Sale cum Construction Agreement", "Sale and Construction Agreement"
+  const scName = (r.desc.match(/(sale\s*(?:cum|and|&|-)\s*construction\s+agreement|construction\s*(?:cum|and|&)\s*sale\s+agreement|agreement\s+for\s+sale[\s,]+(?:development\s+and\s+)?construction)/i) || [])[1];
+  const scLabel = scName ? scName.replace(/\s+/g," ").replace(/\b([a-z])/g, (m0, c, i, str) => /^(cum|and|for|of)$/i.test(str.slice(i).split(/\s/)[0]) && i ? c : c.toUpperCase()) : TYPES.salecon;
 
   let rsn = String(r.reason||"").trim().replace(/\.$/,"");
   if(/^[A-Z][a-z]+\b/.test(rsn) && !/^(Mr|Mrs|Ms|Miss|Dr|Selvi|Smt|Tmt|Thiru|Late)\b/.test(rsn)) rsn = rsn[0].toLowerCase() + rsn.slice(1);
@@ -574,10 +596,10 @@ function templatePara(r, isFirst, addr){
   if(isFirst){
     // "The said schedule mentioned property situated at …… was originally owned and possessed by xxxxx through a xxxxxxxxx being xxxxxx from xxx."
     const dated = ` vide dated ${date}${reg}`;
-    const VERB = {sale:"purchased", settlement:"settled", gift:"gifted", release:"released", partition:"allotted", will:"bequeathed"};
+    const VERB = {sale:"purchased", salecon:"purchased", settlement:"settled", gift:"gifted", release:"released", partition:"allotted", will:"bequeathed"};
     switch(r.type){
-      case "sale": case "settlement": case "gift": case "release": case "partition": case "will":
-        return `${open} was originally owned and possessed by ${Y} through a ${label}${dated} being ${VERB[r.type]} from ${X}.`;
+      case "sale": case "salecon": case "settlement": case "gift": case "release": case "partition": case "will":
+        return `${open} was originally owned and possessed by ${Y} through a ${r.type === "salecon" ? scLabel : label}${dated} being ${VERB[r.type]} from ${X}.`;
       case "patta": return `${open} was originally owned and possessed by ${Y} through a ${/online/i.test(r.desc) ? "Online " : ""}Patta bearing No.${ph(p.patta,"no.")} vide dated ${date} being issued from ${ph(p.issuer,"issuing authority")}.`;
       case "declaration": return `${open} was originally owned and possessed by ${p.X || p.Y || "[name]"} through a Declaration Deed${dated}${reasonPhrase}.`;
       case "poa": { const g = `${p.adj ? p.adj + " " : ""}General Power of Attorney`;
@@ -596,6 +618,8 @@ function templatePara(r, isFirst, addr){
     // "The said Mr.Raju has sold and conveyed the land bearing Plot No.186, Comprised in S.No.2/2B2 Part measuring with an extent of 761.1 Sq.ft., to and in favour of Mrs.Prema under a Sale Deed vide dated 02.09.2011 and registered as Document No.5689 of 2011."
     case "sale": return `The said ${X} ${px.has}${jt} sold and conveyed ${land} to and in favour of ${Y} under a Sale Deed${dated}.`;
     // "The said Mr.Bhakthavachalam … has settled the land to and in favour of her daughter Mrs.Yasodhammal under a Settlement Deed vide dated … and registered as Document No.774 of 1978."
+    // Sale cum Construction Agreement: written in the Sale Deed format
+    case "salecon": return `The said ${X} ${px.has}${jt} sold and conveyed ${land} to and in favour of ${Y} under a ${scLabel}${dated}.`;
     case "settlement": return `The said ${X} ${px.has} settled ${land} to and in favour of ${Y} under a Settlement Deed${dated}.`;
     // "The said Mrs.Abisghavalli & 2 Others have jointly released their respective 3/4th share of the above said Property, Comprised in …, to and in favour of … under a Release Deed vide dated …"
     case "release": return `The said ${X} ${px.has}${jt} released ${px.his} respective share of ${prop2} to and in favour of ${Y} under a Release Deed${dated}.`;
@@ -648,7 +672,25 @@ function templatePara(r, isFirst, addr){
   }
 }
 
-function draftRows(){ return state.rows.filter(r => r.mark !== "red" && (r.desc||"").trim()); }
+function draftRows(){ return state.rows.filter(r => r.kind !== "header" && r.mark !== "red" && (r.desc||"").trim()); }
+// the flow in order: headers as they appear in the list, then their documents.
+// After a survey-number header the chain starts again with "The said schedule mentioned property situated at …";
+// after a "Common documents" header the flow simply continues.
+function flowPlan(){
+  const plan = []; let first = true;
+  state.rows.forEach(r => {
+    if(r.kind === "header"){
+      if(!(r.text||"").trim()) return;
+      plan.push({kind:"header", row:r});
+      if(!/\bcommon\b/i.test(r.text)) first = true;
+      return;
+    }
+    if(r.mark === "red" || !(r.desc||"").trim()) return;
+    plan.push({kind:"doc", row:r, isFirst:first}); first = false;
+  });
+  return plan;
+}
+function headerPara(r){ return { id: uid(), row: r.id, kind:"header", text: r.text.trim(), frags: (r.frags||[]).map(f=>({...f})), note:false }; }
 /* Highlights: only what was highlighted in the sheet is highlighted in the flow.
    Each highlighted piece from the row is matched to the same details in the paragraph
    (the piece itself, and any dates, document numbers, names, survey numbers and extents inside it). */
@@ -699,7 +741,8 @@ function fixAreaDashes(t){ return String(t||"").replace(AREA_DASH_RE, " measurin
 function cleanFlowText(text, r){
   let t = String(text||"");
   // phrases that only carry a missing detail go completely
-  t = t.replace(/\s+(?:and\s+)?being\s+\w+\s+from\s+\[[^\]]*\]/gi, "")
+  t = t.replace(/(as\s+(?:a|an|his|her|their)\s+lawful\s+power\s+agent)(?:\s+as\s+(?:a|an|his|her|their)\s+lawful\s+power\s+agent)+/gi, "as a lawful power agent")
+       .replace(/\s+(?:and\s+)?being\s+\w+\s+from\s+\[[^\]]*\]/gi, "")
        .replace(/measuring\s+with\s+an\s+extent\s+of\s+(Plot\s*No)/gi, "bearing $1")
        .replace(/,?\s*(?:and\s+)?(?:registered|regd\.?)\s+as\s+\[[^\]]*\]/gi, "")
        .replace(/,?\s*(?:vide\s+)?dated\s+\[[^\]]*\]/gi, "")
@@ -716,9 +759,10 @@ function paraFromRow(r, text){ text = cleanFlowText(fixAreaDashes(text), r); ret
 function draftWithRules(){
   const rows = draftRows();
   if(!rows.length){ setStatus("draftStatus","Add at least one document first.","warn"); return; }
-  state.paras = rows.map((r,i) => paraFromRow(r, templatePara(r, i===0, state.address)));
+  state.paras = flowPlan().map(it => it.kind === "header" ? headerPara(it.row) : paraFromRow(it.row, templatePara(it.row, it.isFirst, state.address)));
   renderPaper(); save();
-  setStatus("draftStatus", `Flow generated: ${rows.length} paragraphs. Review names, dates and extents, then download.`, "ok");
+  const nh = state.rows.filter(r => r.kind === "header").length;
+  setStatus("draftStatus", `Flow generated: ${rows.length} paragraphs${nh ? ` under ${nh} header${nh > 1 ? "s" : ""}` : ""}. Review names, dates and extents, then download.`, "ok");
 }
 
 /* ---------- drafting ---------- */
@@ -737,14 +781,21 @@ const LIBRARY = `Reference clauses from the firm's format (follow this wording s
 - Sale agreement: "Subsequently the Mr.Vasudevan and Mrs.Ushasree have jointly entered into a Sale Agreement vide dated 23.03.2026 along with Mr.Saravanan in respect of the land comprised in T.S.No.46, Block No.79 measuring with an extent of 920 Sq.ft., and the same needs to be registered as Sale Deed."
 - Property tax / EB: "Mr.Raghavan has paid the Property Tax for the period from 2021-2022 vide Receipt dated 07.05.2022 for the said Property in his name and the Current Consumption Card vide Service No.09-032-003-1068 is in the name of Mr.Raghavan for the Schedule mentioned Property."`;
 
-function buildPrompt(rows){
-  const list = rows.map((r,i) => Object.assign({ row: i+1, date: r.date, document: r.desc, survey_no_and_extent: formatSurvey(r.survey), type_hint: TYPES[r.type] }, r.type === "declaration" && r.reason ? { declaration_reason: r.reason } : {}));
+function buildPrompt(rows, plan){
+  const firstIds = new Set((plan||[]).filter(it => it.kind === "doc" && it.isFirst).map(it => it.row.id));
+  let sect = ""; const sectOf = new Map();
+  (plan||[]).forEach(it => { if(it.kind === "header") sect = it.row.text; else sectOf.set(it.row.id, sect); });
+  const list = rows.map((r,i) => Object.assign({ row: i+1, date: r.date, document: r.desc, survey_no_and_extent: formatSurvey(r.survey), type_hint: TYPES[r.type] },
+    sectOf.get(r.id) ? { section: sectOf.get(r.id) } : {}, firstIds.has(r.id) ? { first_in_section: true } : {},
+    r.type === "declaration" && r.reason ? { declaration_reason: r.reason } : {}));
   return `You draft the "Flow of Title" section of a Tamil Nadu property legal opinion for a bank, in the firm's exact house style.
 
 RULES (follow strictly):
 1. Write exactly one paragraph per row of the list below, in the same order. Use only facts in the row; never invent names, dates, document numbers or extents. Where a fact is missing, leave that phrase out completely: never write a placeholder or anything in square brackets (no "[Registration details / Document No.]", no "[date]").
 1a. Dates: use only a date given in that row (its date or its document text). For an online document (Online Patta, online EC, online receipt, e-patta and the like) with no date in the row, do not mention any date at all.
-2. The first paragraph must follow this format exactly: "The said schedule mentioned property situated at ${state.address || "<Village, Taluk, District>"}, Comprised in <survey_no_and_extent>, was originally owned and possessed by <owner> through a <document> vide dated <date> and registered as Document No.<n> of <year> being <purchased / settled / gifted / released / allotted / issued> from <the person or office it came from>." Example: "The said schedule mentioned property situated at Padi Village, Ambattur Taluk, Chennai District, Comprised in S.No.50/1 measuring with an extent of 35.5 Cents, was originally owned and possessed by Mr.Kumar through a Sale Deed vide dated 15.03.1964 and registered as Document No.686 of 1964 being purchased from Mr.Ravi."
+15. Rows marked "first_in_section": true start a new chain (a new survey number section): write them in the first-paragraph format of rule 2. Do not write the section headers themselves; the page adds them.
+16. A Sale cum Construction Agreement (or Sale and Construction Agreement) is written in the Sale Deed format, naming the agreement: "The said <X> has sold and conveyed the land Comprised in …, to and in favour of <Y> under a Sale cum Construction Agreement vide dated … and registered as Document No.… of …".
+2. The first paragraph (and the first paragraph of each survey number section) must follow this format exactly: "The said schedule mentioned property situated at ${state.address || "<Village, Taluk, District>"}, Comprised in <survey_no_and_extent>, was originally owned and possessed by <owner> through a <document> vide dated <date> and registered as Document No.<n> of <year> being <purchased / settled / gifted / released / allotted / issued> from <the person or office it came from>." Example: "The said schedule mentioned property situated at Padi Village, Ambattur Taluk, Chennai District, Comprised in S.No.50/1 measuring with an extent of 35.5 Cents, was originally owned and possessed by Mr.Kumar through a Sale Deed vide dated 15.03.1964 and registered as Document No.686 of 1964 being purchased from Mr.Ravi."
 14. An Adjudication / Adjudicatory power of attorney must always state its document number from the row, worded "registered as Adjudication Document No.<n> of <year>" (use "Adjudicatory" if the row says Adjudicatory), e.g. "…under the Adjudication General Power of Attorney Deed vide dated 14.01.2007 and registered as Adjudication Document No.133 of 2007."
 12. A plot number is never an extent: write "bearing Plot No.<n>", never "measuring with an extent of Plot No.<n>" (e.g. "S.No.50/1 bearing Plot No.15 measuring with an extent of 1200 Sq.ft.").
 13. A Declaration Deed row comes with declaration_reason: state that reason in the paragraph, e.g. "Whereas Mr.Kumar has executed a Declaration Deed vide dated 12.02.2020 and registered as Document No.512 of 2020 regarding <reason>."
@@ -771,12 +822,12 @@ Reply with ONLY this JSON and nothing else:
 let flowToken = 0;
 async function draftWithClaude(token){
   if(!sample) return false;
-  const rows = draftRows();
+  const rows = draftRows(); const plan = flowPlan();
   aiAbort = new AbortController();
   const ctl = aiAbort;
   const limit = setTimeout(() => ctl.abort(), 150000);        // never wait on a prompt nobody answers
   try{
-    const res = await sample(buildPrompt(rows), { modelTier: "complex", signal: ctl.signal, cache: false });
+    const res = await sample(buildPrompt(rows, plan), { modelTier: "complex", signal: ctl.signal, cache: false });
     const txt = res.text || "";
     const a = txt.indexOf("{"), b = txt.lastIndexOf("}");
     if(a<0 || b<0) throw {message:"unreadable"};
@@ -788,12 +839,16 @@ async function draftWithClaude(token){
       if(r && text) out.push(paraFromRow(r, text));
     });
     if(!out.length || res.truncated) throw {message:"empty"};
+    // put the headers back in place; any row Claude skipped keeps its template paragraph
+    const byRow = new Map(out.map(p => [p.row, p]));
+    const merged = plan.map(it => it.kind === "header" ? headerPara(it.row) : (byRow.get(it.row.id) || paraFromRow(it.row, templatePara(it.row, it.isFirst, state.address))));
+    out.length = 0; merged.forEach(p => out.push(p));
     // replace the template draft only if this is still the same flow and nothing was edited meanwhile
     if(token !== flowToken || state.paras.some(p => p.edited)) return false;
     const keep = new Map(state.paras.map(p => [p.row, p]));
     out.forEach(p => { const k = keep.get(p.row); if(k){ p.id = k.id; p.note = k.note; } });
     state.paras = out; renderPaper(); save();
-    setStatus("draftStatus", `Flow generated: ${out.length} paragraphs. Review names, dates and extents, then download.`, "ok");
+    setStatus("draftStatus", `Flow generated: ${out.filter(p => p.kind !== "header").length} paragraphs. Review names, dates and extents, then download.`, "ok");
     return true;
   }catch(e){
     return false;
@@ -816,10 +871,11 @@ async function startFlow(){
 // keeps the flow in step with the list of documents; paragraphs you edited by hand are kept as you wrote them
 function syncFlow(){
   if(!state.paras.length){ if(draftRows().length) draftWithRules(); return; }
-  state.paras = draftRows().map((r,i) => {
+  state.paras = flowPlan().map(it => {
+    const r = it.row;
     const ex = state.paras.find(p => p.row === r.id);
     if(ex && ex.edited) return ex;
-    const np = paraFromRow(r, templatePara(r, i===0, state.address));
+    const np = it.kind === "header" ? headerPara(r) : paraFromRow(r, templatePara(r, it.isFirst, state.address));
     if(ex) np.id = ex.id;
     return np;
   });
@@ -832,7 +888,12 @@ function setStatus(id, msg, cls){ const el=$(id); el.textContent = msg||""; el.c
 function renderRows(){
   const tb = $("rows");
   if(!state.rows.length){ tb.innerHTML = `<tr><td colspan="7" class="hint" style="padding:16px;text-align:center">No documents yet. Upload the queries sheet or add them by hand.</td></tr>`; return; }
-  tb.innerHTML = state.rows.map((r,i) => `
+  tb.innerHTML = state.rows.map((r,i) => r.kind === "header" ? `
+    <tr class="hdr" data-id="${r.id}">
+      <td class="idx">${i+1}</td>
+      <td colspan="5"><textarea data-f="text" rows="1" placeholder="Header, e.g. S.No.435/2 or Common Documents" style="width:100%;font-weight:700">${esc(r.text||"")}</textarea></td>
+      <td class="acts"><button data-a="up" title="Move up">↑</button><button data-a="down" title="Move down">↓</button><button data-a="del" title="Remove">✕</button></td>
+    </tr>` : `
     <tr class="${r.mark ? "m-"+r.mark : ""}" data-id="${r.id}">
       <td class="idx">${i+1}</td>
       <td class="date"><textarea data-f="date" rows="1">${esc(r.date)}</textarea></td>
@@ -855,7 +916,11 @@ function renderPaper(){
     el.innerHTML = `<h3>The Flow of Title</h3><div class="empty">Your flow will appear here.<br>Upload the queries sheet and the flow is generated automatically.<br>Changes to the list of documents update the flow straight away.</div>`;
     return;
   }
-  el.innerHTML = `<h3>The Flow of Title</h3>` + state.paras.map((p,i) => `
+  el.innerHTML = `<h3>The Flow of Title</h3>` + state.paras.map((p,i) => p.kind === "header" ? `
+    <div class="para" data-i="${i}">
+      <div class="ctl"><button data-pa="up">↑</button><button data-pa="down">↓</button><button data-pa="del" title="Delete header">✕</button></div>
+      <p><b><span class="txt" contenteditable="true" spellcheck="true">${segHTML(p)}</span></b></p>
+    </div>` : `
     <div class="para" data-i="${i}">
       <div class="ctl">
         <button data-pa="hlsel" title="Select words in this paragraph, then click to highlight them yellow">Highlight selection</button>
@@ -902,7 +967,7 @@ function chartXml(){
 function flowXml(){
   let x = pXml(runXml("The Flow of Title", {b:true, sz:28}), "center", 240);
   state.paras.forEach(p => {
-    let runs = segmentsOf(p.text, p.frags).map(s => runXml(s.t, {hl: s.color})).join("");
+    let runs = segmentsOf(p.text, p.frags).map(s => runXml(s.t, {hl: s.color, b: p.kind === "header"})).join("");
     if(p.note){ runs += runXml(" "); runs += runXml(COMMENT, {b:true, hl: noteColor(p)}); }
     x += pXml(runs);
   });
@@ -996,6 +1061,7 @@ async function doCopy(){
     state.paras.map(p => {
       const bg = c => c && HLCSS[c] ? `background:${HLCSS[c]};mso-highlight:${c};` : "";
       const body = segmentsOf(p.text, p.frags).map(s => s.color ? `<span style="${bg(s.color)}">${esc(s.t)}</span>` : esc(s.t)).join("");
+      if(p.kind === "header") return `<p style="${ps}"><b>${body}</b></p>`;
       return `<p style="${ps}">${body}${p.note ? ` <b style="${bg(noteColor(p))}">${esc(COMMENT)}</b>` : ""}</p>`; }).join("");
   const plain = "The Flow of Title\n\n" + state.paras.map(p => p.text + (p.note ? " " + COMMENT : "")).join("\n\n");
   try{
@@ -1060,6 +1126,7 @@ function bind(){
   $("addr").addEventListener("input", e => { state.address = e.target.value; saveSoon(); });
   $("addr").addEventListener("blur", e => { const s = simplifyAddress(e.target.value); if(s !== e.target.value){ e.target.value = s; state.address = s; save(); } syncFlow(); });
 
+  $("addHdr").addEventListener("click", () => { state.rows.push({id:uid(), kind:"header", text:"", mark:"", frags:[], type:"header"}); renderRows(); save(); const t = $("rows").querySelector("tr:last-child textarea"); t && t.focus(); });
   $("addRow").addEventListener("click", () => { state.rows.push({id:uid(), date:"", desc:"", survey:"", mark:"", type:"sale"}); renderRows(); save(); const t = $("rows").querySelector("tr:last-child textarea"); t && t.focus(); });
   const tb = $("rows");
   tb.addEventListener("input", e => {
@@ -1080,7 +1147,7 @@ function bind(){
       renderPaper(); }
     if(f === "type"){ r.type = e.target.value; r._typeSet = true; renderRows(); }
     save();
-    if(f === "mark" || f === "type" || f === "date" || f === "desc" || f === "survey" || f === "reason") syncFlow();
+    if(f === "mark" || f === "type" || f === "date" || f === "desc" || f === "survey" || f === "reason" || f === "text") syncFlow();
   });
   tb.addEventListener("click", e => {
     const b = e.target.closest("button[data-a]"); if(!b) return;
