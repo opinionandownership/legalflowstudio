@@ -567,17 +567,28 @@ function partiesOf(d){
   const adjWord = adj ? adj[0].toUpperCase() + adj.slice(1).toLowerCase() : "";
   return { X, Y, adj: adjWord, docno: dn ? `${adjWord ? adjWord + " " : ""}Document No.${dn[1]} of ${dn[2]}` : "", patta: pn?pn[1]:"", issuer: iss?iss[1].trim():"" };
 }
-// parties of a Sale cum Construction Agreement, keeping labels such as "(Builder)" / "(Developer)" with the names
-function saleConParties(d){
-  const tag = "(?:\\s*\\((?:Builder|Developer|Promoter|Vendor|Owner|Land\\s*Owner|Purchaser|Buyer)s?\\))?";
-  let t = String(d||"").replace(/\(\s*(?:Adj\w*\.?\s*)?Doc(?:ument)?\.?\s*No[^)]*\)/gi, "").replace(/\s+vide\b.*$/i, "").replace(/\s+dated\b.*$/i, "").trim();
-  t = t.replace(/^.*?construction\s+agreement\s*/i, "").replace(/^.*?construction\s*/i, "");
-  let m = t.match(new RegExp("^(?:executed\\s+|entered\\s+(?:into\\s+)?)?(?:by|between)\\s+(.+?" + tag + ")\\s+(?:to\\s+(?:and\\s+)?in\\s+favou?r\\s+of|in\\s+favou?r\\s+of|along\\s+with|with)\\s+(.+?" + tag + ")\\s*$", "i"));
-  if(m) return { X: m[1].trim(), Y: m[2].trim() };
-  m = t.match(/^(?:entered\s+(?:into\s+)?)?between\s+(.+)\s+and\s+(.+?)$/i);      // "between A and B (Builder) and C": the last name is the purchaser
-  if(m) return { X: m[1].trim(), Y: m[2].trim() };
+// parties of a Sale Agreement / Sale cum Construction Agreement: X = owner side (with labels such as "(Builder)"), Y = the other party
+function agreementParties(d){
+  const TAG = String.raw`(?:\s*\((?:Builder|Developer|Promoter|Vendor|Owner|Land\s*Owners?|Purchaser|Buyer|Agreement\s*Holder)s?\))?`;
+  const tidy = v => String(v||"").replace(/^\s*(?:the|one)\s+/i, "").replace(/[\s,;:.–-]+$/, "").trim();
+  let t = String(d||"").replace(/\(\s*(?:Adj\w*\.?\s*)?Doc(?:ument)?\.?\s*No[^)]*\)/gi, "").replace(/\s+vide\b.*$/i, "").replace(/\s+dated\b.*$/i, "").replace(/\s+/g, " ").trim();
+  // "Vendor: Mr.A, Purchaser: Mr.B"
+  const v = t.match(/\b(?:vendors?|sellers?|owners?)\s*[:\-–]\s*(.+?)(?=[,;]|\s+(?:purchasers?|buyers?)\b|$)/i);
+  const pu = t.match(/\b(?:purchasers?|buyers?)\s*[:\-–]\s*(.+?)(?=[,;]|$)/i);
+  if(v || pu) return { X: tidy(v && v[1]), Y: tidy(pu && pu[1]) };
+  // "… in favour of Mr.B executed by Mr.A"
+  let m = t.match(/in\s+favou?r\s+of\s+(.+?)\s+(?:executed|entered)\s+(?:into\s+)?by\s+(.+)$/i);
+  if(m) return { X: tidy(m[2]), Y: tidy(m[1]) };
+  // drop the document's own name ("Sale Agreement", "Agreement for Sale", "Sale cum Construction Agreement" …)
+  t = t.replace(/^.*?\bagreement(?:\s+(?:for|of)\s+sale)?(?:\s+deed)?\b\s*/i, "");
+  m = t.match(new RegExp(String.raw`^(?:(?:executed|entered)\s+(?:into\s+)?)?(?:by|between)?\s*(.+?${TAG})\s+(?:to\s+(?:and\s+)?in\s+favou?r\s+of|in\s+favou?r\s+of|along\s+with|with)\s+(.+?${TAG})\s*$`, "i"));
+  if(m && tidy(m[1])) return { X: tidy(m[1]), Y: tidy(m[2]) };
+  // "between Mr.A and Mr.B": the last name is the other party
+  m = t.match(/^(?:(?:executed|entered)\s+(?:into\s+)?)?between\s+(.+)\s+and\s+(.+?)$/i);
+  if(m) return { X: tidy(m[1]), Y: tidy(m[2]) };
   return { X: "", Y: "" };
 }
+const saleConParties = agreementParties;
 function pron(name){
   const s = String(name||"");
   if(/\band\b|&|others|jointly/i.test(s)) return {his:"their", he:"they", has:"have"};
@@ -666,7 +677,9 @@ function templatePara(r, isFirst, addr){
     // "… and subsequently cancelled the same by a Discharge Receipt vide dated 29.09.2021 and registered as Document No.7007 of 2021."
     case "discharge": return `Subsequently the said mortgage was cancelled by a Discharge Receipt${dated}.`;
     // "Subsequently the Mr.Vasudevan and Mrs.Ushasree have jointly entered into a Sale Agreement vide dated 23.03.2026 along with Mr.Saravanan in respect of the land comprised in T.S.No.46, Block No.79 measuring with an extent of 920 Sq.ft., and the same needs to be registered as Sale Deed."
-    case "agreement": return `Subsequently the ${X} ${px.has}${jt} entered into a Sale Agreement${dated} along with ${Y} in respect of ${comp ? `the land ${comp.replace(/^Comprised/, "comprised")},` : "the above said land"} and the same needs to be registered as Sale Deed.`;
+    // "Subsequently the Mr.Vasudevan and Mrs.Ushasree have jointly entered into a Sale Agreement vide dated 23.03.2026 along with Mr.Saravanan in respect of the land comprised in …, and the same needs to be registered as Sale Deed."
+    case "agreement": { const ag = agreementParties(r.desc), ax = ag.X || p.X, ay = ag.Y || p.Y, pa = pron(ax);
+      return `Subsequently the ${ph(ax,"executant")} ${pa.has}${pa.has === "have" ? " jointly" : ""} entered into a Sale Agreement${dated} along with ${ph(ay,"name")} in respect of ${comp ? `the land ${comp.replace(/^Comprised/, "comprised")},` : "the above said land,"} and the same needs to be registered as Sale Deed.`; }
     case "declaration": return `Whereas ${p.X || p.Y || "the said owner"} ${pron(p.X || p.Y).has} executed a Declaration Deed vide dated ${date}${reg}${comp ? ` in respect of ${prop}` : ""}${reasonPhrase}.`;
     case "eb": {
       // "The electricity consumption card vide Receipt [dated …,] Service No.xxxxx, in the name of …"
@@ -807,6 +820,7 @@ RULES (follow strictly):
 1. Write exactly one paragraph per row of the list below, in the same order. Use only facts in the row; never invent names, dates, document numbers or extents. Where a fact is missing, leave that phrase out completely: never write a placeholder or anything in square brackets (no "[Registration details / Document No.]", no "[date]").
 1a. Dates: use only a date given in that row (its date or its document text). For an online document (Online Patta, online EC, online receipt, e-patta and the like) with no date in the row, do not mention any date at all.
 15. Rows marked "first_in_section": true start a new chain (a new survey number section): write them in the first-paragraph format of rule 2. Do not write the section headers themselves; the page adds them.
+17. A Sale Agreement must always name both parties: the owner / vendor side (as written, e.g. "Mr.Murugan as a power agent of Mrs.Seethalakshmi") after "Subsequently the", and the purchaser after "along with", e.g. "Subsequently the Mr.Vasudevan and Mrs.Ushasree have jointly entered into a Sale Agreement vide dated 23.03.2026 along with Mr.Saravanan in respect of the land comprised in …, and the same needs to be registered as Sale Deed."
 16. A Sale cum Construction Agreement (or Sale and Construction Agreement) is written exactly like this example, keeping labels such as (Builder) with the names: "Subsequently the Mr.Kishore Kumar and Mr.Vijayakumar (Builder) has entered into a Sale cum Construction Agreement vide dated 19.11.2026 along with Mr.Jagathish in respect of the land Comprised in S.No.186/4B and 186/3, as per patta New S.No.186/33, EWS Plot No.210 measuring with an extent of 880 Sq.Ft., of Land together with 635 Sq.Ft., of building, and the same needs to be registered as Sale Deed."
 2. The first paragraph (and the first paragraph of each survey number section) must follow this format exactly: "The said schedule mentioned property situated at ${state.address || "<Village, Taluk, District>"}, Comprised in <survey_no_and_extent>, was originally owned and possessed by <owner> through a <document> vide dated <date> and registered as Document No.<n> of <year> being <purchased / settled / gifted / released / allotted / issued> from <the person or office it came from>." Example: "The said schedule mentioned property situated at Padi Village, Ambattur Taluk, Chennai District, Comprised in S.No.50/1 measuring with an extent of 35.5 Cents, was originally owned and possessed by Mr.Kumar through a Sale Deed vide dated 15.03.1964 and registered as Document No.686 of 1964 being purchased from Mr.Ravi."
 14. An Adjudication / Adjudicatory power of attorney must always state its document number from the row, worded "registered as Adjudication Document No.<n> of <year>" (use "Adjudicatory" if the row says Adjudicatory), e.g. "…under the Adjudication General Power of Attorney Deed vide dated 14.01.2007 and registered as Adjudication Document No.133 of 2007."
