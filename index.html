@@ -698,12 +698,33 @@ function templatePara(r, isFirst, addr){
       const who = p.X || p.Y;
       return `${who ? `Subsequently the said ${who} ${pron(who).has} cancelled` : "Subsequently cancelled"} the same by a ${what}${dated}${comp ? ` in respect of the property ${comp.replace(/^Comprised/, "comprised")}` : ""}.`;
     }
-    // Joint Venture Agreement (format file): "Subsequently Mrs.Menahadevi (Land Owner) had entered into a Joint Venture Agreement dated 07.10.2012 with M/s.Amethyst Homes Pvt Limited (Developer) to construct a Residential Flat in the above said property …"
-    case "jv": { const jvp = agreementParties(r.desc.replace(/joint\s*venture\s+agreement|joint\s*venture|joint\s+development\s+agreement/i, "Agreement")),
-        owner = jvp.X || p.X, dev = jvp.Y || p.Y;
-      const o = owner ? `${owner}${/\(\s*land\s*owners?\s*\)/i.test(owner) ? "" : (pron(owner).has === "have" ? " (Land Owners)" : " (Land Owner)")}` : "";
+    // Joint Venture Agreement, two formats:
+    // UDS shares: "Subsequently Mr.Mustaq Ali &Mr.Jafarulla Khan (Land Owners) entered a Joint Venture Agreement in the month of 01.01.2013 with Mr.C.Subramanian, son of Mr.R.Chellan (Developer) to construct a Flat in the said property for residential purposes with 58% UDS allotted to Land Owners and 42% UDS allotted to Developer out of 2275 sq.ft."
+    // flat shares: "Subsequently Mr.Muthukumar (Land Owners) has entered a Joint Venture Agreement vide dated 28.09.2013 along with Mr.Anto Mathivanan (Developer) to construct a Flat in the said property for residential purposes with allotted to Land Owner Share (Flat No.G2, Ground floor – 875 Sq.ft., Flat No.F2 – First Floor – 840 Sq.ft., …,)."
+    case "jv": {
+      const src = `${r.desc} ${r.survey || ""}`;
+      const stop = /\s*(?:[–—-]|,|;)?\s*(?:\d+(?:\.\d+)?\s*%|flat\s*no|land\s*owners?'?\s*share|to\s+construct|for\s+(?:the\s+)?(?:residential|construction)|\bout\s+of\b).*$/i;
+      const jvp = agreementParties(r.desc.replace(/joint\s*venture\s+agreement|joint\s*venture|joint\s+development\s+agreement/i, "Agreement"));
+      const owner = (jvp.X || p.X || "").replace(stop, "").trim(), dev = (jvp.Y || p.Y || "").replace(stop, "").trim();
+      const plural = pron(owner).has === "have";
+      const o = owner ? `${owner}${/\(\s*land\s*owners?\s*\)/i.test(owner) ? "" : (plural ? " (Land Owners)" : " (Land Owner)")}` : "";
       const dv = dev ? `${dev}${/\(\s*(developer|builder|promoter)s?\s*\)/i.test(dev) ? "" : " (Developer)"}` : "";
-      return `Subsequently ${ph(o,"land owner")} had entered into a Joint Venture Agreement dated ${date}${reg} with ${ph(dv,"developer")} to construct a Residential Flat in the above said property${ofProp ? ofProp.replace(/,$/,"") : ""}.`; }
+      const inProp = `in the said property${comp ? `, ${comp},` : ""}`;
+      // UDS percentages
+      const pctOwner = (src.match(/(\d+(?:\.\d+)?)\s*%\s*(?:of\s+)?(?:UDS\s*)?(?:is\s+)?(?:allotted\s+)?(?:to\s+)?(?:the\s+)?land\s*owners?/i) || src.match(/land\s*owners?\D{0,25}?(\d+(?:\.\d+)?)\s*%/i) || [])[1];
+      const pctDev = (src.match(/(\d+(?:\.\d+)?)\s*%\s*(?:of\s+)?(?:UDS\s*)?(?:is\s+)?(?:allotted\s+)?(?:to\s+)?(?:the\s+)?(?:developer|builder|promoter)/i) || src.match(/(?:developer|builder|promoter)\D{0,25}?(\d+(?:\.\d+)?)\s*%/i) || [])[1];
+      const pcts = src.match(/\d+(?:\.\d+)?\s*%/g) || [];
+      const po = pctOwner || (pcts[0] || "").replace(/\s*%/, ""), pd = pctDev || (pcts[1] || "").replace(/\s*%/, "");
+      if(po && pd){
+        const outOf = (src.match(/out\s+of\s+([\d.,]+\s*(?:sq\.?\s?ft\.?|sq\.?\s?feet|sq\.?\s?mtrs?\.?|cents?))/i) || src.match(/([\d.,]+\s*(?:sq\.?\s?ft\.?|sq\.?\s?feet|sq\.?\s?mtrs?\.?|cents?))/i) || [])[1];
+        return `Subsequently ${ph(o,"land owner")} entered a Joint Venture Agreement in the month of ${date} with ${ph(dv,"developer")} to construct a Flat ${inProp} for residential purposes with ${po}% UDS allotted to Land Owner${plural ? "s" : ""} and ${pd}% UDS allotted to Developer${outOf ? ` out of ${outOf.trim()}` : ""}.`;
+      }
+      // land owner's flats, as written in the list
+      let flats = (r.desc.match(/land\s*owners?'?\s*share\s*\(([^)]*)\)/i) || [])[1];
+      if(!flats){ const i = src.search(/flat\s*no/i); if(i >= 0) flats = src.slice(i).replace(/\(\s*Doc[^)]*\)/gi, "").replace(/[).\s]+$/, ""); }
+      const share = flats ? ` with allotted to Land Owner Share (${flats.trim().replace(/,?\s*$/, ",")})` : "";
+      return `Subsequently ${ph(o,"land owner")} ${plural ? "have" : "has"} entered a Joint Venture Agreement vide dated ${date}${reg} along with ${ph(dv,"developer")} to construct a Flat ${inProp} for residential purposes${share}.`;
+    }
     // "… and subsequently cancelled the same by a Discharge Receipt vide dated 29.09.2021 and registered as Document No.7007 of 2021."
     case "discharge": return `Subsequently the said mortgage${comp ? ` in respect of the property ${comp.replace(/^Comprised/, "comprised")},` : ""} was cancelled by a Discharge Receipt${dated}.`;
     // "Subsequently the Mr.Vasudevan and Mrs.Ushasree have jointly entered into a Sale Agreement vide dated 23.03.2026 along with Mr.Saravanan in respect of the land comprised in T.S.No.46, Block No.79 measuring with an extent of 920 Sq.ft., and the same needs to be registered as Sale Deed."
@@ -822,7 +843,7 @@ function cleanFlowText(text, r){
   t = t.replace(/,?\s*(?:vide\s+dated|dated|vide|on)\s+(\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4})\b/gi, (m, d) => source.includes(d) ? m : "");
   return t.replace(/\.{2,}(?=\s|$)/g, ".").replace(/\s+([,.;])/g, "$1").replace(/,\s*,/g, ",").replace(/,\s*\./g, ".").replace(/\s{2,}/g, " ").replace(/\bthe said\s+(has|have)\b/gi, "the said owner $1").trim();
 }
-function paraFromRow(r, text){ text = cleanFlowText(fixAreaDashes(text), r); return { id: uid(), row: r.id, text, frags: rowFrags(r).map(f=>({...f})), note: r.mark === "yellow" }; }
+function paraFromRow(r, text){ text = cleanFlowText(r.type === "jv" ? text : fixAreaDashes(text), r); return { id: uid(), row: r.id, text, frags: rowFrags(r).map(f=>({...f})), note: r.mark === "yellow" }; }
 
 function draftWithRules(){
   const rows = draftRows();
@@ -865,7 +886,7 @@ RULES (follow strictly):
 18. Survey number details: every paragraph whose row has survey_no_and_extent must state those survey number details, word for word.
 19. Cancellations: when the row is a Cancellation of a document (e.g. "Cancellation of Settlement Deed", "Cancellation of Sale Deed"), the word "Cancellation" must appear with the document's name: "Subsequently the said <X> has cancelled the same by a Cancellation of Settlement Deed vide dated … and registered as Document No.… of …".
 20. Mutation of revenue records: write "After the said purchase it appears that mutation of Revenue records took place …" only when the document before it is a sale deed; otherwise write "Whereas it appears that mutation of Revenue records took place …" and never mention a purchase.
-21. Joint Venture Agreement: "Subsequently <land owner> (Land Owner) had entered into a Joint Venture Agreement dated <date> with <developer> (Developer) to construct a Residential Flat in the above said property …" adding the flat / UDS / share details the row gives.
+21. Joint Venture Agreement, two formats. With UDS percentages: "Subsequently Mr.Mustaq Ali & Mr.Jafarulla Khan (Land Owners) entered a Joint Venture Agreement in the month of 01.01.2013 with Mr.C.Subramanian, son of Mr.R.Chellan (Developer) to construct a Flat in the said property for residential purposes with 58% UDS allotted to Land Owners and 42% UDS allotted to Developer out of 2275 sq.ft." With the land owner's flats: "Subsequently Mr.Muthukumar (Land Owner) has entered a Joint Venture Agreement vide dated 28.09.2013 along with Mr.Anto Mathivanan (Developer) to construct a Flat in the said property for residential purposes with allotted to Land Owner Share (Flat No.G2, Ground floor – 875 Sq.ft., Flat No.F2 – First Floor – 840 Sq.ft.,)." Copy the flat list exactly as written in the row.
 22. An MODT listed together with another document in the same row (e.g. "Sale Deed & MODT") is not mentioned at all: write only the other document.
 17. A Sale Agreement must always name both parties: the owner / vendor side (as written, e.g. "Mr.Murugan as a power agent of Mrs.Seethalakshmi") after "Subsequently the", and the purchaser after "along with", e.g. "Subsequently the Mr.Vasudevan and Mrs.Ushasree have jointly entered into a Sale Agreement vide dated 23.03.2026 along with Mr.Saravanan in respect of the land comprised in …, and the same needs to be registered as Sale Deed."
 16. A Sale cum Construction Agreement (or Sale and Construction Agreement) is written exactly like this example, keeping labels such as (Builder) with the names: "Subsequently the Mr.Kishore Kumar and Mr.Vijayakumar (Builder) has entered into a Sale cum Construction Agreement vide dated 19.11.2026 along with Mr.Jagathish in respect of the land Comprised in S.No.186/4B and 186/3, as per patta New S.No.186/33, EWS Plot No.210 measuring with an extent of 880 Sq.Ft., of Land together with 635 Sq.Ft., of building, and the same needs to be registered as Sale Deed."
