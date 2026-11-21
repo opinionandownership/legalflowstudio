@@ -189,7 +189,7 @@ const TYPES = {
   sale:"Sale Deed", settlement:"Settlement Deed", release:"Release Deed", gift:"Gift Deed",
   partition:"Partition Deed", will:"Will", poa:"Power of Attorney", patta:"Patta / Revenue",
   death:"Death / Legal Heir", mortgage:"MODT / Mortgage", discharge:"Discharge Receipt",
-  agreement:"Sale Agreement", ec:"Encumbrance Cert.", tax:"Property Tax", eb:"EB Card / Receipt", declaration:"Declaration Deed", salecon:"Sale cum Construction Agreement", generic:"Other"
+  agreement:"Sale Agreement", ec:"Encumbrance Cert.", tax:"Property Tax", eb:"EB Card / Receipt", declaration:"Declaration Deed", salecon:"Sale cum Construction Agreement", cancellation:"Cancellation Deed", jv:"Joint Venture Agreement", generic:"Other"
 };
 const MARKS = {"":"None", yellow:"Yellow – not produced", red:"Red – exclude"};
 const HLCSS = {yellow:"#ffff00", green:"#00ff00", cyan:"#00ffff", magenta:"#ff00ff"};
@@ -423,12 +423,26 @@ function cleanDesc(s){
     .replace(/\s{2,}/g," ").replace(/^\s*[-–:]\s*/,"").trim();
 }
 
+// "Sale Deed & MODT …": the MODT is left out of the flow and the row is written for the other document
+const MODT_RE = /\b(?:modt|mod|memorandum\s+of\s+deposit(?:\s+of\s+title\s+deeds?)?|mortgage\s+deed|mortgage)\b/i;
+const OTHER_DOC_RE = /\b(sale\s+deed|sale\s+certificate|settlement|release|gift|partition|patta|power\s+of\s+attorney|gpa|agreement|will|certificate|declaration|rectification|exchange|lease|tax|receipt)\b/i;
+function dropCombinedModt(d){
+  d = String(d||"");
+  if(!MODT_RE.test(d)) return d;
+  const rest = d.replace(new RegExp(MODT_RE.source, "gi"), " ");
+  if(!OTHER_DOC_RE.test(rest) || /^\s*(?:discharge|receipt)\b/i.test(d)) return d;         // an MODT on its own (or its discharge) stays
+  return d
+    .replace(/\s*(?:,|&|\+|\band\b|\balong\s+with\b|\bwith\b)\s*(?:the\s+)?(?:modt|mod|memorandum\s+of\s+deposit(?:\s+of\s+title\s+deeds?)?|mortgage(?:\s+deed)?)\b(?:\s*(?:deed|doc(?:ument)?\.?\s*no\.?\s*\d+\s*\/\s*\d{4}))*/gi, "")
+    .replace(/^\s*(?:modt|mod|memorandum\s+of\s+deposit(?:\s+of\s+title\s+deeds?)?|mortgage(?:\s+deed)?)\b\s*(?:,|&|\+|\band\b)\s*/i, "")
+    .replace(/\s{2,}/g," ").trim();
+}
 function detectType(d){
   const s = d.toLowerCase();
   if(/\beb\b|electricity|consumption card|current consumption|service connection|\btneb\b|tangedco/.test(s)) return "eb";
   if(/sale\s*(?:cum|and|&|-)\s*construction|construction\s*(?:cum|and|&)\s*sale|agreement\s+for\s+sale[\s,]+(?:development\s+and\s+)?construction/.test(s)) return "salecon";
   if(/declaration/.test(s)) return "declaration";
-  if(/cancell?ation/.test(s) && /power|gpa|poa/.test(s)) return "generic";
+  if(/cancell?ation\s+of|cancell?ation\s+deed|deed\s+of\s+cancell?ation|revocation\s+of/.test(s)) return "cancellation";
+  if(/joint\s*venture|\bjva\b|joint\s+development/.test(s)) return "jv";
   if(/patta|chitta|adangal|\btslr\b|town survey|a[- ]register/.test(s)) return "patta";
   if(/power of attorney|\bgpa\b|\bpoa\b|\bspa\b|adjudicat\w*\s+(?:general\s+|special\s+)?power/.test(s)) return "poa";
   if(/settlement/.test(s)) return "settlement";
@@ -522,7 +536,7 @@ async function readDocx(file){
       const frags = allRed ? [] : used.flatMap(c => c.frags).map(f => ({text: cleanDesc(f.text) || f.text, color: f.color})).filter(f => f.text.replace(/[\s.,–-]/g,"").length);
       // only a real date from the date column is used (an "Online" / "-" entry gives no date)
       const dateTxt = DATE_RE.test(d.text) ? d.text.trim() : "";
-      const descTxt = cleanDesc(ds.text);
+      const descTxt = dropCombinedModt(cleanDesc(ds.text));
       let survey = sv.text;
       if(survey) carrySurvey = survey;
       const type = detectType(descTxt);
@@ -636,6 +650,8 @@ function templatePara(r, isFirst, addr){
   const inRespect = comp ? `the property ${comp.replace(/^Comprised/, "comprised")},` : "the above said property,";
   const dated = ` vide dated ${date}${reg}`;
   const jt = px.has === "have" ? " jointly" : "";
+  // the survey number details from the row, for paragraphs that refer to "the said property"
+  const ofProp = comp ? ` ${comp},` : "";
   switch(r.type){
     // "The said Mr.Raju has sold and conveyed the land bearing Plot No.186, Comprised in S.No.2/2B2 Part measuring with an extent of 761.1 Sq.ft., to and in favour of Mrs.Prema under a Sale Deed vide dated 02.09.2011 and registered as Document No.5689 of 2011."
     case "sale": return `The said ${X} ${px.has}${jt} sold and conveyed ${land} to and in favour of ${Y} under a Sale Deed${dated}.`;
@@ -656,7 +672,7 @@ function templatePara(r, isFirst, addr){
     case "poa": { const g = `${p.adj ? p.adj + " " : ""}General Power of Attorney`;
       return `It appears that ${X} ${px.has}${jt} executed ${p.adj ? "an" : "a"} ${g} for ${forProp} to appoint ${Y} ${POA_PHRASE}, under ${p.adj ? "the" : "a"} ${g} Deed${dated}.`; }
     // "After the said purchase it appears that mutation of Revenue records took place in the name of Mrs.Kalyani and she has obtained the Patta bearing No.2349 vide dated 22.03.2013, issued by the Zonal Deputy Tahsildar of Ponneri Taluk in respect of the property comprised in New S.No.201/5A2B measuring with an extent of 969 Sq.ft., will proves it."
-    case "patta": return `After the said purchase it appears that mutation of Revenue records took place in the name of ${Y} and ${py.he} ${py.has} obtained the ${/online/i.test(r.desc) ? "Online " : ""}Patta bearing No.${ph(p.patta,"no.")} vide dated ${date}, issued by ${ph(p.issuer,"issuing authority")} in respect of ${inRespect} will proves it.`;
+    case "patta": return `${afterSale(r) ? "After the said purchase it appears that" : "Whereas it appears that"} mutation of Revenue records took place in the name of ${Y} and ${py.he} ${py.has} obtained the ${/online/i.test(r.desc) ? "Online " : ""}Patta bearing No.${ph(p.patta,"no.")} vide dated ${date}, issued by ${ph(p.issuer,"issuing authority")} in respect of ${inRespect} will proves it.`;
     // "Subsequently, on 31.08.2001, Mr.Palani, died intestate leaving behind … as his only legal heirs. Whereas the Death Certificate issued by Corporation of Chennai dated 18.12.2012 proves it. Whereas the Legal Heir Certificate issued by Tahsildar of … dated 23.08.2013 in the name of Late Mr.Palani proves it. After the death of Late Mr.Palani his legal heirs became the joint owners of the said property."
     case "death": {
       const isDeath = /death/i.test(r.desc), isLH = /legal\s*heir/i.test(r.desc);
@@ -669,13 +685,27 @@ function templatePara(r, isFirst, addr){
       if(isDeath) out.push(`Subsequently,${dod ? ` on ${dod},` : ""} ${Y}, died intestate leaving behind ${py.his} legal heirs. Whereas the Death Certificate${by} dated ${date} proves it.`);
       if(isLH) out.push(`${isDeath || deathRowBefore ? "" : `Subsequently ${Y} died intestate leaving behind ${py.his} legal heirs. `}Whereas the Legal Heir Certificate${by} dated ${date} in the name of Late ${Y.replace(/^Late\s+/i,"")} proves it.`);
       if(!out.length) out.push(`Whereas the ${r.desc} dated ${date} proves it.`);
-      if(!lhRowLater) out.push(`After the death of Late ${Y.replace(/^Late\s+/i,"")} ${py.his} legal heirs became the joint owners of the said property.`);
+      if(!lhRowLater) out.push(`After the death of Late ${Y.replace(/^Late\s+/i,"")} ${py.his} legal heirs became the joint owners of the said property${comp ? `, ${comp}` : ""}.`);
       return out.join(" ");
     }
     // "It appears that Mr.Marudhupandian has availed a loan from the M/s.INDO Star Capital Finance Ltd., and on the security he has mortgaged the above said Property with M/s.INDO Star Capital Finance Ltd., and he has executed a Memorandum of Deposit of Title Deeds dated 01.08.2017 and registered as Document No.4856 of 2017"
-    case "mortgage": return `It appears that ${X} ${px.has} availed a loan from the ${Y} and on the security ${px.he} ${px.has} mortgaged the above said Property with ${Y} and ${px.he} ${px.has} executed a Memorandum of Deposit of Title Deeds dated ${date}${reg}.`;
+    case "mortgage": return `It appears that ${X} ${px.has} availed a loan from the ${Y} and on the security ${px.he} ${px.has} mortgaged the above said Property${ofProp ? "," + ofProp : ""} with ${Y} and ${px.he} ${px.has} executed a Memorandum of Deposit of Title Deeds dated ${date}${reg}.`;
+    // "… and subsequently cancelled the same by a Cancellation of General Power of Attorney dated 08.02.2017 and registered as Document No.438 of 2017."
+    case "cancellation": {
+      const cl = (r.desc.match(/((?:cancell?ation|revocation)\s+of\s+(?:the\s+)?(?:registered\s+)?[A-Za-z ]*?(?:deed|agreement|attorney|will|power|receipt|lease|deposit[A-Za-z ]*deeds?))\b/i)
+              || r.desc.match(/((?:cancell?ation|revocation)\s+deed|deed\s+of\s+cancell?ation)/i) || [])[1];
+      const what = cl ? cl.replace(/\s+/g," ").replace(/\b([a-z])(\w*)/g, (m0, c, rest) => /^(of|the|for)$/i.test(m0) ? m0.toLowerCase() : c.toUpperCase() + rest) : "Cancellation Deed";
+      const who = p.X || p.Y;
+      return `${who ? `Subsequently the said ${who} ${pron(who).has} cancelled` : "Subsequently cancelled"} the same by a ${what}${dated}${comp ? ` in respect of the property ${comp.replace(/^Comprised/, "comprised")}` : ""}.`;
+    }
+    // Joint Venture Agreement (format file): "Subsequently Mrs.Menahadevi (Land Owner) had entered into a Joint Venture Agreement dated 07.10.2012 with M/s.Amethyst Homes Pvt Limited (Developer) to construct a Residential Flat in the above said property …"
+    case "jv": { const jvp = agreementParties(r.desc.replace(/joint\s*venture\s+agreement|joint\s*venture|joint\s+development\s+agreement/i, "Agreement")),
+        owner = jvp.X || p.X, dev = jvp.Y || p.Y;
+      const o = owner ? `${owner}${/\(\s*land\s*owners?\s*\)/i.test(owner) ? "" : (pron(owner).has === "have" ? " (Land Owners)" : " (Land Owner)")}` : "";
+      const dv = dev ? `${dev}${/\(\s*(developer|builder|promoter)s?\s*\)/i.test(dev) ? "" : " (Developer)"}` : "";
+      return `Subsequently ${ph(o,"land owner")} had entered into a Joint Venture Agreement dated ${date}${reg} with ${ph(dv,"developer")} to construct a Residential Flat in the above said property${ofProp ? ofProp.replace(/,$/,"") : ""}.`; }
     // "… and subsequently cancelled the same by a Discharge Receipt vide dated 29.09.2021 and registered as Document No.7007 of 2021."
-    case "discharge": return `Subsequently the said mortgage was cancelled by a Discharge Receipt${dated}.`;
+    case "discharge": return `Subsequently the said mortgage${comp ? ` in respect of the property ${comp.replace(/^Comprised/, "comprised")},` : ""} was cancelled by a Discharge Receipt${dated}.`;
     // "Subsequently the Mr.Vasudevan and Mrs.Ushasree have jointly entered into a Sale Agreement vide dated 23.03.2026 along with Mr.Saravanan in respect of the land comprised in T.S.No.46, Block No.79 measuring with an extent of 920 Sq.ft., and the same needs to be registered as Sale Deed."
     // "Subsequently the Mr.Vasudevan and Mrs.Ushasree have jointly entered into a Sale Agreement vide dated 23.03.2026 along with Mr.Saravanan in respect of the land comprised in …, and the same needs to be registered as Sale Deed."
     case "agreement": { const ag = agreementParties(r.desc), ax = ag.X || p.X, ay = ag.Y || p.Y, pa = pron(ax);
@@ -688,16 +718,28 @@ function templatePara(r, isFirst, addr){
       const parts = [`The electricity consumption card vide Receipt${r.date ? ` dated ${r.date}` : ""}`];
       if(sv) parts.push(`Service No.${sv.replace(/\s+/g,"")}`);
       if(nm) parts.push(`in the name of ${nm}`);
+      if(comp) parts.push(`for the property ${comp.replace(/^Comprised/, "comprised")}`);
       return parts.join(", ").replace(/Receipt, Service/, "Receipt Service") + ".";
     }
     // "Mrs.Shanthi had paid the Property Tax for the period from 2015-2019 vide Receipt dated 05.07.2019 for the said Property in her name."
     case "tax": { const per = (r.desc.match(/(?:period\s+(?:from\s+)?|for\s+the\s+year\s+)(\d{4}\s*[-–]\s*\d{2,4})/i) || [])[1];
-      return `${Y} has paid the Property Tax${per ? ` for the period from ${per.replace(/\s+/g,"")}` : ""} vide Receipt dated ${date} for the said Property in ${py.his} name.`; }
+      return `${Y} has paid the Property Tax${per ? ` for the period from ${per.replace(/\s+/g,"")}` : ""} vide Receipt dated ${date} for the said Property${ofProp ? "," + ofProp : ""} in ${py.his} name.`; }
     // "Whereas the UDS Letter dated 24.01.2020 … was also produced" / "… will proves it."
-    default: return `Whereas the ${r.desc}${r.date ? ` vide dated ${r.date}` : ""} will proves it.`;
+    default: return `Whereas the ${r.desc}${r.date ? ` vide dated ${r.date}` : ""}${comp ? ` in respect of the property ${comp.replace(/^Comprised/, "comprised")},` : ""} will proves it.`;
   }
 }
 
+// "After the said purchase" is used only when the document just before is a sale deed
+function afterSale(r){
+  const docs = state.rows.filter(x => x.kind !== "header" && x.mark !== "red" && (x.desc||"").trim());
+  const i = docs.findIndex(x => x.id === r.id);
+  for(let j = i - 1; j >= 0; j--){
+    const t = docs[j].type;
+    if(t === "patta") continue;                          // several pattas in a row look back past each other
+    return t === "sale" || t === "salecon";
+  }
+  return false;
+}
 function draftRows(){ return state.rows.filter(r => r.kind !== "header" && r.mark !== "red" && (r.desc||"").trim()); }
 // the flow in order: headers as they appear in the list, then their documents.
 // After a survey-number header the chain starts again with "The said schedule mentioned property situated at …";
@@ -778,7 +820,7 @@ function cleanFlowText(text, r){
   // a date not written in this row (date column or document description) is removed with its "vide dated"
   const source = `${r.date||""} ${r.desc||""} ${r.survey||""}`;
   t = t.replace(/,?\s*(?:vide\s+dated|dated|vide|on)\s+(\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4})\b/gi, (m, d) => source.includes(d) ? m : "");
-  return t.replace(/\s+([,.;])/g, "$1").replace(/,\s*,/g, ",").replace(/,\s*\./g, ".").replace(/\s{2,}/g, " ").replace(/\bthe said\s+(has|have)\b/gi, "the said owner $1").trim();
+  return t.replace(/\.{2,}(?=\s|$)/g, ".").replace(/\s+([,.;])/g, "$1").replace(/,\s*,/g, ",").replace(/,\s*\./g, ".").replace(/\s{2,}/g, " ").replace(/\bthe said\s+(has|have)\b/gi, "the said owner $1").trim();
 }
 function paraFromRow(r, text){ text = cleanFlowText(fixAreaDashes(text), r); return { id: uid(), row: r.id, text, frags: rowFrags(r).map(f=>({...f})), note: r.mark === "yellow" }; }
 
@@ -820,6 +862,11 @@ RULES (follow strictly):
 1. Write exactly one paragraph per row of the list below, in the same order. Use only facts in the row; never invent names, dates, document numbers or extents. Where a fact is missing, leave that phrase out completely: never write a placeholder or anything in square brackets (no "[Registration details / Document No.]", no "[date]").
 1a. Dates: use only a date given in that row (its date or its document text). For an online document (Online Patta, online EC, online receipt, e-patta and the like) with no date in the row, do not mention any date at all.
 15. Rows marked "first_in_section": true start a new chain (a new survey number section): write them in the first-paragraph format of rule 2. Do not write the section headers themselves; the page adds them.
+18. Survey number details: every paragraph whose row has survey_no_and_extent must state those survey number details, word for word.
+19. Cancellations: when the row is a Cancellation of a document (e.g. "Cancellation of Settlement Deed", "Cancellation of Sale Deed"), the word "Cancellation" must appear with the document's name: "Subsequently the said <X> has cancelled the same by a Cancellation of Settlement Deed vide dated … and registered as Document No.… of …".
+20. Mutation of revenue records: write "After the said purchase it appears that mutation of Revenue records took place …" only when the document before it is a sale deed; otherwise write "Whereas it appears that mutation of Revenue records took place …" and never mention a purchase.
+21. Joint Venture Agreement: "Subsequently <land owner> (Land Owner) had entered into a Joint Venture Agreement dated <date> with <developer> (Developer) to construct a Residential Flat in the above said property …" adding the flat / UDS / share details the row gives.
+22. An MODT listed together with another document in the same row (e.g. "Sale Deed & MODT") is not mentioned at all: write only the other document.
 17. A Sale Agreement must always name both parties: the owner / vendor side (as written, e.g. "Mr.Murugan as a power agent of Mrs.Seethalakshmi") after "Subsequently the", and the purchaser after "along with", e.g. "Subsequently the Mr.Vasudevan and Mrs.Ushasree have jointly entered into a Sale Agreement vide dated 23.03.2026 along with Mr.Saravanan in respect of the land comprised in …, and the same needs to be registered as Sale Deed."
 16. A Sale cum Construction Agreement (or Sale and Construction Agreement) is written exactly like this example, keeping labels such as (Builder) with the names: "Subsequently the Mr.Kishore Kumar and Mr.Vijayakumar (Builder) has entered into a Sale cum Construction Agreement vide dated 19.11.2026 along with Mr.Jagathish in respect of the land Comprised in S.No.186/4B and 186/3, as per patta New S.No.186/33, EWS Plot No.210 measuring with an extent of 880 Sq.Ft., of Land together with 635 Sq.Ft., of building, and the same needs to be registered as Sale Deed."
 2. The first paragraph (and the first paragraph of each survey number section) must follow this format exactly: "The said schedule mentioned property situated at ${state.address || "<Village, Taluk, District>"}, Comprised in <survey_no_and_extent>, was originally owned and possessed by <owner> through a <document> vide dated <date> and registered as Document No.<n> of <year> being <purchased / settled / gifted / released / allotted / issued> from <the person or office it came from>." Example: "The said schedule mentioned property situated at Padi Village, Ambattur Taluk, Chennai District, Comprised in S.No.50/1 measuring with an extent of 35.5 Cents, was originally owned and possessed by Mr.Kumar through a Sale Deed vide dated 15.03.1964 and registered as Document No.686 of 1964 being purchased from Mr.Ravi."
