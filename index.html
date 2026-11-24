@@ -416,7 +416,7 @@ function cellInfo(tc){
     if(ptxt.trim()) text += (text ? " " : "") + ptxt.trim();
   });
   const span = parseInt(wattr(kids(tcPr,"gridSpan")[0],"val") || "1", 10) || 1;
-  return { span, text: text.replace(/\s+/g," ").trim(), marks, frags, allRed: allChars>0 && redChars===allChars, hasText: allChars>0 };
+  return { span, text: dropEcNote(text.replace(/\s+/g," ").trim()), marks, frags, allRed: allChars>0 && redChars===allChars, hasText: allChars>0 };
 }
 
 const DATE_RE = /\b\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}\b/;
@@ -437,8 +437,11 @@ function formatSurvey(s){
     .replace(/\s{2,}/g," ").trim();
 }
 
+// "Entry missing in EC" (and the same note worded differently) is a remark for the opinion, never part of the flow
+const EC_NOTE_RE = /\s*[(\[]?\s*(?:[-–,;:]\s*)?(?:(?:the\s+)?(?:EC\s+)?(?:entry|entries)\s+(?:is\s+|are\s+|was\s+|were\s+)?)?(?:missing|not\s+(?:found|reflected|shown|available|appearing))\s+in\s+(?:the\s+)?(?:EC|E\.C\.?|encumbrance\s+certificate)\b\.?\s*[)\]]?|\s*[(\[]?\s*(?:[-–,;:]\s*)?\bEC\s+entr(?:y|ies)\s+(?:is\s+|are\s+)?(?:missing|not\s+(?:found|reflected|available))\b\.?\s*[)\]]?/gi;
+function dropEcNote(s){ return String(s||"").replace(EC_NOTE_RE, " ").replace(/\s{2,}/g," ").replace(/\s+([,.;)])/g,"$1").replace(/\(\s*\)/g,"").trim(); }
 function cleanDesc(s){
-  return String(s||"")
+  return dropEcNote(s)
     .replace(/\b(certified\s+copy\s+of|photo\s?copy\s+of|xerox\s+copy\s+of)\s+/gi,"")
     .replace(/\b(original|photo\s?copy|xerox(\s+copy)?)\b\s*/gi,"")
     .replace(/\bwith\s+court\s+seal\b/gi,"")
@@ -943,7 +946,7 @@ const AREA_DASH_RE = new RegExp(DASH + AREA_AHEAD, "gi");
 function fixAreaDashes(t){ return String(t||"").replace(AREA_DASH_RE, " measuring with an extent of ").replace(/measuring with an extent of\s+measuring with an extent of/gi, "measuring with an extent of"); }
 // no bracketed placeholders, and no date that the list of documents doesn't give for that row
 function cleanFlowText(text, r){
-  let t = String(text||"");
+  let t = dropEcNote(text);
   // phrases that only carry a missing detail go completely
   t = t.replace(/(as\s+(?:a|an|his|her|their)\s+lawful\s+power\s+agent)(?:\s+as\s+(?:a|an|his|her|their)\s+lawful\s+power\s+agent)+/gi, "as a lawful power agent")
        .replace(/\s+(?:and\s+)?being\s+\w+\s+from\s+\[[^\]]*\]/gi, "")
