@@ -1014,6 +1014,37 @@ function cleanFlowText(text, r){
   t = t.replace(/,?\s*(?:vide\s+dated|dated|vide|on)\s+(\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4})\b/gi, (m, d) => source.includes(d) ? m : "");
   return t.replace(/\.{2,}(?=\s|$)/g, ".").replace(/\s+([,.;])/g, "$1").replace(/,\s*,/g, ",").replace(/,\s*\./g, ".").replace(/\s{2,}/g, " ").replace(/\bthe said\s+(has|have)\b/gi, "the said owner $1").trim();
 }
+// details written in brackets in the list of documents are carried into the flow, placed after the word they follow there
+function addBracketNotes(text, r){
+  const d = String(r.desc || "");
+  const norm = v => String(v).toLowerCase().replace(/[^a-z0-9%\/]+/g, "");
+  let t = text;
+  const re = /\(([^()]{1,200})\)/g; let m;
+  while((m = re.exec(d))){
+    const inner = m[1].replace(/\s+/g, " ").trim();
+    if(!inner) continue;
+    if(/^(?:adj\w*\.?\s*)?(?:doc(?:ument)?|d)\.?\s*no\b/i.test(inner)) continue;                 // Doc.No.: used as the document number
+    if(/^(?:original|photo\s?copy|xerox(?:\s+copy)?|copy|certified\s+copy|true\s+copy)\.?$/i.test(inner)) continue;   // never say original / copy
+    if(/legal\s*heirs?\s*(?:are|:|[-–]|viz|namely)|^heirs\s*[:\-–]/i.test(inner)) continue;       // legal heirs: already named
+    if(norm(t).includes(norm(inner))) continue;                                          // already in the paragraph
+    const dates = inner.match(/\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}/g) || [];
+    if(dates.length && dates.every(x => t.includes(x)) && inner.replace(/\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}/g, "").trim().split(/\s+/).filter(Boolean).length <= 2) continue;   // "(DOD 31.08.2001)" already said
+    // anchor: the words just before the bracket in the list (e.g. a name), longest match first
+    const before = d.slice(0, m.index).replace(/\s+$/, "").split(/\s+/);
+    let placed = false;
+    for(let k = Math.min(4, before.length); k >= 1 && !placed; k--){
+      const anchor = before.slice(-k).join(" ").replace(/[,;:]+$/, "");
+      if(anchor.replace(/[^\w]/g, "").length < 3) continue;
+      const at = t.toLowerCase().indexOf(anchor.toLowerCase());
+      if(at < 0) continue;
+      const end = at + anchor.length;
+      if(/^\s*\(/.test(t.slice(end))) continue;                                               // already followed by a bracket
+      t = t.slice(0, end) + ` (${inner})` + t.slice(end); placed = true;
+    }
+    if(!placed) t = t.replace(/\.\s*$/, "") + ` (${inner}).`;
+  }
+  return t;
+}
 // every document with a Doc.No. in the list mentions it
 function ensureDocNo(text, r){
   const dn = partiesOf(r.desc || "").docno; if(!dn) return text;
@@ -1026,7 +1057,7 @@ function ensureDocNo(text, r){
   if(at) return text.replace(at[0], `${at[0]} ${say}`);
   return text.replace(/\.\s*$/, "") + `, ${notDeed ? say : "vide " + dn}.`;
 }
-function paraFromRow(r, text){ text = ensureDocNo(cleanFlowText(r.type === "jv" ? text : fixAreaDashes(text), r), r); return { id: uid(), row: r.id, text, frags: rowFrags(r).map(f=>({...f})), note: r.mark === "yellow" }; }
+function paraFromRow(r, text){ text = ensureDocNo(addBracketNotes(cleanFlowText(r.type === "jv" ? text : fixAreaDashes(text), r), r), r); return { id: uid(), row: r.id, text, frags: rowFrags(r).map(f=>({...f})), note: r.mark === "yellow" }; }
 
 function draftWithRules(){
   const rows = draftRows();
@@ -1073,6 +1104,7 @@ RULES (follow strictly):
 25. Layout plan / planning permit: "The said Mr.J.Jaganathan had converted the above said properties into a Housing Plots and the said Layout has been approved by the Chennai Metropolitan Development Authority vide., approval No.PPD/L.O.136 of 2003 Letter No.L1/36502/2003 dated 12/12/2003. The Planning permit is produced and it is confirms the same."
 27. First (root) document that is not a sale deed: use the format file's first-document clause for that type (First Partition Deed, First Release Deed, First Settlement Deed, First Will, First Exchange Deed, First Possession Certificate, First Patta), still beginning "The said schedule mentioned property situated at <Village, Taluk, District>, Comprised in <survey no. and extent>,". E.g. partition: "… was originally owned and possessed by Mrs.Savithri and 3 others along with their Family members through their ancestral property and they have entered into a Partition Deed dated 03.11.2008 and registered as Document No.8420 of 2008 with their family members and the A-Schedule was allotted to them for the land."; release: "… was originally owned and possessed by Mrs.Roobavathi through her Self Acquired property by way of Release Deed vide dated 20.03.2003 and registered as Document No.2027 of 2003 released from her family members Mrs.Mariyammal and 4 others."
 28. Every document that has a document number in the row must state it ("registered as Document No.<n> of <year>").
+30. Anything written in brackets in the row (e.g. "(Builder)", "(Coma stage)", "(A Schedule Property)", "(5/6th share)") must appear in the paragraph, in brackets, after the word it follows in the row. Brackets that only give the Doc.No. or say original / copy are not repeated.
 29. Never write the same document twice: if the list repeats a document (same Doc.No., or same document and date), write it once.
 18. Survey number details: every paragraph whose row has survey_no_and_extent must state those survey number details, word for word.
 19. Cancellations: when the row is a Cancellation of a document (e.g. "Cancellation of Settlement Deed", "Cancellation of Sale Deed"), the word "Cancellation" must appear with the document's name: "Subsequently the said <X> has cancelled the same by a Cancellation of Settlement Deed vide dated … and registered as Document No.… of …".
