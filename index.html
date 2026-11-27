@@ -480,7 +480,7 @@ function detectType(d){
   if(/gift/.test(s)) return "gift";
   if(/partition/.test(s)) return "partition";
   if(/\bwill\b/.test(s)) return "will";
-  if(/death|legal heir/.test(s)) return "death";
+  if(/death|legal\s*heir|heirship|\bl\.?\s?h\.?\s?c\b|succession\s+certificate|family\s+member(?:ship)?\s+certificate|surviving\s+members?\s+certificate/.test(s)) return "death";
   if(/discharge|receipt deed|\breceipt\b/.test(s) && !/tax|eb\b|electricity/.test(s)) return "discharge";
   if(/\bmodt\b|\bmod\b|mortgage|memorandum of deposit/.test(s)) return "mortgage";
   if(/encumbrance|\bec\b/.test(s)) return "ec";
@@ -563,11 +563,16 @@ async function readDocx(file){
     const m = mapColumns(grid);
     const body = m.hasHeader ? grid.slice(1) : grid;
     let carrySurvey = "";
+    const heirCol = m.hasHeader ? grid[0].findIndex(c => /heir|legal\s+representative|\blrs?\b|survived/i.test(c.text)) : -1;
     const maxCols = Math.max(...grid.map(x => x.reduce((n, c) => n + (c.span||1), 0)));
     for(const r of body){
       // a header row for a survey number / section: one text across the row (often a merged cell), no date, not a document
       const filled = r.filter(c => c.hasText && c.text);
       const texts = [...new Set(filled.map(c => c.text))];
+      if(texts.length === 1 && /^\s*(?:the\s+)?(?:legal\s*heirs?|L\.?\s?R\.?s?|heirs|survived\s+by|leaving\s+behind)\b/i.test(texts[0]) && new RegExp(PERSON_RE.source).test(texts[0])){
+        const lastDeath = [...rows].reverse().find(x => x.type === "death");
+        if(lastDeath){ lastDeath.heirs = ((lastDeath.heirs ? lastDeath.heirs + ", " : "") + texts[0]).trim(); continue; }
+      }
       if(texts.length === 1){
         const one = texts[0], cell = filled[0], at = r.indexOf(cell);
         const merged = (cell.span||1) > 1 && r.length < maxCols;
@@ -603,7 +608,10 @@ async function readDocx(file){
       }
       // legal heirs listed in the column right after the document column (when that column isn't a survey number)
       let heirs = "";
-      if(type === "death" && m.desc >= 0 && r[m.desc+1]){
+      if(type === "death" && heirCol >= 0 && heirCol !== m.desc && r[heirCol] && r[heirCol].text.trim()){
+        heirs = r[heirCol].text.trim(); if(heirCol === m.survey) survey = "";
+      }
+      else if(type === "death" && m.desc >= 0 && r[m.desc+1]){
         const nx = r[m.desc+1].text.trim();
         if(nx && !COPY_RE.test(nx) && !SURVEY_RE.test(nx) && /\b(?:Mr|Mrs|Ms|Miss|Master|Selvi|Kumari|Smt|Tmt|Thiru)\./.test(nx)){ heirs = nx; if(m.desc+1 === m.survey) survey = ""; }
       }
@@ -638,7 +646,7 @@ function partiesOf(d){
   const dn = d.match(/Doc(?:ument)?\.?\s*No\.?\s*:?\s*(\d+)\s*(?:\/|of)\s*(\d{4})/i)
           || (adj ? d.match(/Adj\w*\.?\s*(?:Doc(?:ument)?\.?\s*)?No\.?\s*:?\s*(\d+)\s*(?:\/|of)\s*(\d{4})/i) : null);
   const pn = d.match(/Patta\s*(?:No\.?|bearing\s+No\.?)?\s*(\d+)/i);
-  const iss = d.match(/issued\s+by\s+(.+?)(?=\s*\(|\s+vide\b|\s+dated\b|\s+to\s+|\s+in\s+favou?r|$)/i);
+  const iss = d.match(/issued\s+by\s+(.+?)(?=\s*\(|\s+vide\b|\s+dated\b|\s+to\s+|\s+in\s+favou?r|\s*[-–,;:]?\s+(?:the\s+)?(?:legal\s*heirs?|L\.?R\.?s?\b|heirs\b|survived\s+by|leaving\s+behind|namely|viz)|$)/i);
   const adjWord = adj ? adj[0].toUpperCase() + adj.slice(1).toLowerCase() : "";
   return { X, Y, adj: adjWord, docno: dn ? `${adjWord ? adjWord + " " : ""}Document No.${dn[1]} of ${dn[2]}` : "", patta: pn?pn[1]:"", issuer: iss?iss[1].trim():"" };
 }
@@ -670,17 +678,24 @@ function heirNames(r, deceased){
   const dead = String(deceased||"").replace(/^Late\s+/i,"").replace(/\s+/g,"").toLowerCase();
   let src = (r.heirs || "").trim();
   if(!src){
+    // the names after "legal heirs", "LRs", "survived by", "viz.", "namely" … (not the words "Legal Heir Certificate" themselves)
     const d = String(r.desc||"");
-    const k = d.search(/\b(?:legal\s*heirs?\s*(?:are|:|[-–]|viz\.?,?|namely)|heirs\s*(?:are|:|[-–])|viz\.?,?|namely|LRs?\s*:)/i);
-    if(k >= 0) src = d.slice(k);
+    const kw = /\b(?:legal\s*heirs?(?:hip)?|L\.?\s?R\.?s?|heirs|survived\s+by|leaving\s+behind|viz\.?,?|namely)\b/gi; let k;
+    while((k = kw.exec(d))){ if(!/^\s*(?:certificate|cert\b)/i.test(d.slice(k.index + k[0].length))){ src = d.slice(k.index + k[0].length); break; } }
   }
   if(!src) return [];
   const seen = new Set(), out = [];
-  (src.match(PERSON_RE) || []).forEach(n => {
-    const key = n.replace(/\s+/g,"").toLowerCase();
-    if(key === dead || seen.has(key)) return;
-    seen.add(key); out.push(n.trim());
-  });
+  const re = new RegExp(PERSON_RE.source, "g"); let m;
+  while((m = re.exec(src))){
+    const name = m[0].trim(), key = name.replace(/\s+/g,"").toLowerCase();
+    if(key === dead || seen.has(key)) continue;
+    seen.add(key);
+    // relationship written beside the name: "Mr.A (Son)", "Mrs.B – 2nd Wife", "Mrs.C - Daughter"
+    const after = src.slice(m.index + m[0].length);
+    const rel = (after.match(/^\s*\(\s*((?:\d+(?:st|nd|rd|th)\s+)?(?:wife|husband|son|daughter|mother|father|brother|sister|grand\s?son|grand\s?daughter|son[-\s]in[-\s]law|daughter[-\s]in[-\s]law|widow)[^()]{0,20})\)/i)
+              || after.match(/^\s*[-–]\s*((?:\d+(?:st|nd|rd|th)\s+)?(?:wife|husband|mother|father|brother|sister|widow|(?:\d+(?:st|nd|rd|th)\s+)?wife\s+(?:son|daughter)|son|daughter)(?:\s+(?:son|daughter))?)\b/i) || [])[1];
+    out.push(rel ? `${name} (${rel.replace(/\s+/g," ").trim().replace(/^\w/, c => c.toUpperCase())})` : name);
+  }
   return out;
 }
 function nameList(a){ return a.length <= 1 ? (a[0] || "") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1]; }
@@ -790,11 +805,15 @@ function templatePara(r, isFirst, addr){
     case "patta": return `${afterSale(r) ? "After the said purchase it appears that" : "Whereas it appears that"} mutation of Revenue records took place in the name of ${Y} and ${py.he} ${py.has} obtained the ${/online/i.test(r.desc) ? "Online " : ""}Patta bearing No.${ph(p.patta,"no.")} vide dated ${date}, issued by ${ph(p.issuer,"issuing authority")} in respect of ${inRespect} will proves it.`;
     // "Subsequently, on 31.08.2001, Mr.Palani, died intestate leaving behind … as his only legal heirs. Whereas the Death Certificate issued by Corporation of Chennai dated 18.12.2012 proves it. Whereas the Legal Heir Certificate issued by Tahsildar of … dated 23.08.2013 in the name of Late Mr.Palani proves it. After the death of Late Mr.Palani his legal heirs became the joint owners of the said property."
     case "death": {
-      const isDeath = /death/i.test(r.desc), isLH = /legal\s*heir/i.test(r.desc);
+      const LH_RE = /legal\s*heir|heirship|\bl\.?\s?h\.?\s?c\b|succession\s+certificate|family\s+member(?:ship)?\s+certificate|surviving\s+members?\s+certificate/i;
+      const isDeath = /death/i.test(r.desc), isLH = LH_RE.test(r.desc);
+      // the certificate's name as written in the list ("Legal Heirship Certificate", "Succession Certificate"; "LHC" = Legal Heir Certificate)
+      const lhName = ((r.desc.match(/(legal\s*heir(?:ship)?\s+certificate|succession\s+certificate|family\s+member(?:ship)?\s+certificate|surviving\s+members?\s+certificate)/i) || [])[1] || "Legal Heir Certificate")
+        .replace(/\s+/g," ").replace(/\b\w/g, c => c.toUpperCase());
       // only the other death / legal heir rows of the SAME person
       const keyOf = v => String(v||"").replace(/^Late\s+/i,"").replace(/\s+/g,"").toLowerCase();
       const others = draftRows().filter(x => x.id !== r.id && x.type === "death" && keyOf(partiesOf(x.desc).Y) === keyOf(p.Y));
-      const lhRowLater = isDeath && !isLH && others.some(x => /legal\s*heir/i.test(x.desc));   // the legal heir row closes the chain
+      const lhRowLater = isDeath && !isLH && others.some(x => LH_RE.test(x.desc));   // the legal heir row closes the chain
       const deathRowBefore = isLH && !isDeath && others.some(x => /death/i.test(x.desc));       // the death row already said "died intestate"
       const dod = (r.desc.match(/(?:died|death|DOD'?S?)\D{0,20}?(\d{1,2}[.\/-]\d{1,2}[.\/-]\d{4})/i) || [])[1];
       const by = p.issuer ? ` issued by ${p.issuer}` : "";
@@ -805,7 +824,7 @@ function templatePara(r, isFirst, addr){
       const leaving = heirs.length ? `leaving behind ${nameList(heirs)} as ${py.his} only legal heirs` : `leaving behind ${py.his} legal heirs`;
       const out = [];
       if(isDeath) out.push(`Subsequently,${dod ? ` on ${dod},` : ""} ${Y}, died intestate ${leaving}. Whereas the Death Certificate${by} dated ${date} proves it.`);
-      if(isLH) out.push(`${isDeath || deathRowBefore ? "" : `Subsequently ${Y} died intestate ${leaving}. `}Whereas the Legal Heir Certificate${by} dated ${date} in the name of Late ${Y.replace(/^Late\s+/i,"")} proves it.`);
+      if(isLH) out.push(`${isDeath || deathRowBefore ? "" : `Subsequently ${Y} died intestate ${leaving}. `}Whereas the ${lhName}${by} dated ${date} in the name of Late ${Y.replace(/^Late\s+/i,"")} proves it.`);
       if(!out.length) out.push(`Whereas the ${r.desc} dated ${date} proves it.`);
       if(!lhRowLater) out.push(`After the death of Late ${Y.replace(/^Late\s+/i,"")} ${py.his} legal heirs${heirs.length ? ` ${nameList(heirs)}` : ""} became the joint owners of the said property${comp ? `, ${comp}` : ""}.`);
       return out.join(" ");
@@ -1025,7 +1044,10 @@ function addBracketNotes(text, r){
     if(!inner) continue;
     if(/^(?:adj\w*\.?\s*)?(?:doc(?:ument)?|d)\.?\s*no\b/i.test(inner)) continue;                 // Doc.No.: used as the document number
     if(/^(?:original|photo\s?copy|xerox(?:\s+copy)?|copy|certified\s+copy|true\s+copy)\.?$/i.test(inner)) continue;   // never say original / copy
-    if(/legal\s*heirs?\s*(?:are|:|[-–]|viz|namely)|^heirs\s*[:\-–]/i.test(inner)) continue;       // legal heirs: already named
+    if(/legal\s*heirs?|^heirs\b|^L\.?R\.?s?\b|survived\s+by/i.test(inner)){                      // legal heirs: skip if already named
+      const names = inner.match(new RegExp(PERSON_RE.source, "g")) || [];
+      if(names.length && names.every(n => t.includes(n))) continue;
+    }
     if(norm(t).includes(norm(inner))) continue;                                          // already in the paragraph
     const dates = inner.match(/\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}/g) || [];
     if(dates.length && dates.every(x => t.includes(x)) && inner.replace(/\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}/g, "").trim().split(/\s+/).filter(Boolean).length <= 2) continue;   // "(DOD 31.08.2001)" already said
