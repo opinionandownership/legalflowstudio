@@ -203,7 +203,7 @@ const TYPES = {
   sale:"Sale Deed", settlement:"Settlement Deed", release:"Release Deed", gift:"Gift Deed",
   partition:"Partition Deed", will:"Will", poa:"Power of Attorney", patta:"Patta / Revenue",
   death:"Death / Legal Heir", mortgage:"MODT / Mortgage", discharge:"Discharge Receipt",
-  agreement:"Sale Agreement", ec:"Encumbrance Cert.", tax:"Property Tax", eb:"EB Card / Receipt", declaration:"Declaration Deed", salecon:"Sale cum Construction Agreement", cancellation:"Cancellation Deed", jv:"Joint Venture Agreement", mou:"Memorandum of Understanding", rera:"RERA Certificate", layout:"Layout Plan / Planning Permit", generic:"Other"
+  agreement:"Sale Agreement", ec:"Encumbrance Cert.", tax:"Property Tax", eb:"EB Card / Receipt", declaration:"Declaration Deed", salecon:"Sale cum Construction Agreement", cancellation:"Cancellation Deed", jv:"Joint Venture Agreement", mou:"Memorandum of Understanding", exchange:"Exchange Deed", possession:"Possession Certificate", rera:"RERA Certificate", layout:"Layout Plan / Planning Permit", generic:"Other"
 };
 const MARKS = {"":"None", yellow:"Yellow – not produced", red:"Red – exclude"};
 const HLCSS = {yellow:"#ffff00", green:"#00ff00", cyan:"#00ffff", magenta:"#ff00ff"};
@@ -468,6 +468,8 @@ function detectType(d){
   if(/\beb\b|electricity|consumption card|current consumption|service connection|\btneb\b|tangedco/.test(s)) return "eb";
   if(/sale\s*(?:cum|and|&|-)\s*construction|construction\s*(?:cum|and|&)\s*sale|agreement\s+for\s+sale[\s,]+(?:development\s+and\s+)?construction/.test(s)) return "salecon";
   if(/declaration/.test(s)) return "declaration";
+  if(/exchange\s+deed|deed\s+of\s+exchange/.test(s)) return "exchange";
+  if(/possession\s+certificate/.test(s)) return "possession";
   if(/cancell?ation\s+of|cancell?ation\s+deed|deed\s+of\s+cancell?ation|revocation\s+of/.test(s)) return "cancellation";
   if(/memorandum\s+of\s+understanding|\bmou\b/.test(s)) return "mou";
   if(/joint\s*venture|\bjva\b|joint\s+development/.test(s)) return "jv";
@@ -696,7 +698,8 @@ function templatePara(r, isFirst, addr){
   const X = ph(p.X,"executant"), Y = ph(p.Y,"name");
   const date = ph(r.date,"date");
   const reg = p.docno ? ` and registered as ${p.docno}` : "";
-  const comp = r.survey ? `Comprised in ${formatSurvey(r.survey)}` : "";
+  const sv = surveyOf(r);
+  const comp = sv ? `Comprised in ${formatSurvey(sv)}` : "";
   const prop = comp ? `the property ${comp}` : "the above said property";
   const open = `The said schedule mentioned property situated at ${ph(addr,"Village, Taluk, District")}` + (comp ? `, ${comp}` : "") + ",";
   const py = pron(p.Y), px = pron(p.X);
@@ -712,10 +715,37 @@ function templatePara(r, isFirst, addr){
     // "The said schedule mentioned property situated at …… was originally owned and possessed by xxxxx through a xxxxxxxxx being xxxxxx from xxx."
     const dated = ` vide dated ${date}${reg}`;
     const VERB = {sale:"purchased", salecon:"purchased", settlement:"settled", gift:"gifted", release:"released", partition:"allotted", will:"bequeathed"};
+    const sched = (r.desc.match(/["“”']?\b([A-H])\b["“”']?\s*[-–]?\s*schedule/i) || [])[1];
+    const allottedTo = (r.desc.match(/allotted\s+to\s+(.+?)(?=\s*\(|,|\s+vide\b|\s+dated\b|$)/i) || [])[1];
+    const share = (r.desc.match(/(\d+\s*\/\s*\d+\s*(?:st|nd|rd|th)?)\s*share/i) || [])[1];
+    // all the parties of a family document ("between A, B and C", "executed by A and 3 others")
+    const allParties = (r.desc.match(/(?:between|among|executed\s+by|entered\s+(?:into\s+)?by)\s+(.+?)(?=\s*\(|\s+allotted\b|\s+to\s+(?:and\s+)?in\s+favou?r|\s+in\s+favou?r|\s+vide\b|\s+dated\b|$)/i) || [])[1] || p.X || p.Y;
     switch(r.type){
-      case "sale": case "salecon": case "settlement": case "gift": case "release": case "partition": case "will":
-        return `${open} was originally owned and possessed by ${Y} through a ${r.type === "salecon" ? scLabel : label}${dated} being ${VERB[r.type]} from ${X}.`;
-      case "patta": return `${open} was originally owned and possessed by ${Y} through a ${/online/i.test(r.desc) ? "Online " : ""}Patta bearing No.${ph(p.patta,"no.")} vide dated ${date} being issued from ${ph(p.issuer,"issuing authority")}.`;
+      // sale deed: "… was originally owned and possessed by xxxxx through a Sale Deed … being purchased from xxx."
+      case "sale": case "salecon":
+        return `${open} was originally owned and possessed by ${Y} through a ${r.type === "salecon" ? scLabel : label}${dated} being purchased from ${X}.`;
+      // First Partition Deed: "… was originally owned and possessed by Mrs.Savithri and 3 others along with their Family members through his ancestral property and he has entered into a Partition Deed dated 03.11.2008 in Document No.8420/2008 with his family members and the A-Schedule was allotted to them for the land."
+      case "partition": { const koor = /koor\s*chit|koorchit/i.test(r.desc) ? "Partition Koor Chit" : "Partition Deed";
+        return `${open} was originally owned and possessed by ${ph(allParties,"name")} along with their Family members through their ancestral property and they have entered into a ${koor} dated ${date}${reg} with their family members and the ${sched ? `${sched.toUpperCase()}-Schedule` : "said property"} was allotted to ${allottedTo || (p.Y && p.Y !== allParties ? p.Y : "them")} for the land.`; }
+      // First Release Deed: "… was originally owned and possessed by Mrs.Roobavathi through her Self Acquired property by way of Release deed vide dated 20.03.2003 and registered as Document No. 2027 of 2003 released from her family members Mrs.Mariyammal and 4 others (5/6th Share of Release Mrs.Roobavathi)."
+      case "release":
+        return `${open} was originally owned and possessed by ${Y} through ${py.his} Self Acquired property by way of Release Deed${dated} released from ${py.his} family members ${X}${share ? ` (${share.replace(/\s+/g,"")} Share of Release ${Y})` : ""}.`;
+      // First Settlement Deed: "… was originally owned and possessed by Mr.Bhakthavachalam through his ancestral property and he has settled the land to and in favour of her daughter Mrs.Yasodhammal under a Settlement Deed vide dated 17.05.1978 and registered as Document No.774 of 1978."
+      case "settlement":
+        return `${open} was originally owned and possessed by ${X} through ${px.his} ancestral property and ${px.he} ${px.has} settled the land to and in favour of ${Y} under a Settlement Deed${dated}.`;
+      case "gift":
+        return `${open} was originally owned and possessed by ${X} through ${px.his} ancestral property and ${px.he} ${px.has} gifted the land to and in favour of ${Y} under a Gift Deed${dated}.`;
+      // First Will: "… was originally owned and possessed by Mr.Sampath Mudaliar through his ancestral property and he has executed a Will Deed vide dated 28.12.1992 and registered as Document No.61 of 1992 and executed a Will to and in favour of his sons …"
+      case "will":
+        return `${open} was originally owned and possessed by ${X} through ${px.his} ancestral property and ${px.he} ${px.has} executed a Will Deed${dated} and executed a Will to and in favour of ${Y}.`;
+      // First Exchange Deed: "… was originally owned and possessed by Mr.Chinappa Naicker & Mr.Gopal Naicker through their exchanged the A & B Schedule property and they have entered into an Exchange Deed dated 17.10.1966 and registered as Document No.3846 of 1966 in A-Schedule was allotted to Mr.Chinappa Naicker for the land."
+      case "exchange":
+        return `${open} was originally owned and possessed by ${ph(allParties,"name")} through their exchanged the A & B Schedule property and they have entered into an Exchange Deed dated ${date}${reg}${sched || allottedTo ? ` in ${sched ? sched.toUpperCase() + "-Schedule" : "which the said property"} was allotted to ${allottedTo || p.Y || "them"}` : ""} for the land.`;
+      // First Possession Certificate: "… was originally owned and possessed by Mr.Velladurai through his ancestral property and he has obtained the Possession Certificate in his name and the same was issued by the Tahsildar of Saidapet Taluk for the above said property."
+      case "possession":
+        return `${open} was originally owned and possessed by ${Y} through ${py.his} ancestral property and ${py.he} ${py.has} obtained the Possession Certificate in ${py.his} name${p.issuer ? ` and the same was issued by ${p.issuer}` : ""} for the above said property.`;
+      // First Patta: "… was originally owned and possessed by Mr.Mani through his ancestral property and he has obtained the Patta No.1, vide dated 29.12.1994, issued by Special Tahsildar of Sriperumbudur Taluk."
+      case "patta": return `${open} was originally owned and possessed by ${Y} through ${py.his} ancestral property and ${py.he} ${py.has} obtained the ${/online/i.test(r.desc) ? "Online " : ""}Patta No.${ph(p.patta,"no.")}, vide dated ${date}, issued by ${ph(p.issuer,"issuing authority")}.`;
       case "declaration": return `${open} was originally owned and possessed by ${p.X || p.Y || "[name]"} through a Declaration Deed${dated}${reasonPhrase}.`;
       case "poa": { const g = `${p.adj ? p.adj + " " : ""}General Power of Attorney`;
         return `${open} was originally owned and possessed by ${X} and ${px.he} ${px.has} executed an ${g} to appoint ${Y} ${POA_PHRASE}, under the ${g} Deed vide dated ${date}${reg}.`.replace(/executed an General/, "executed a General"); }
@@ -735,6 +765,12 @@ function templatePara(r, isFirst, addr){
     // "The said Mr.Raju has sold and conveyed the land bearing Plot No.186, Comprised in S.No.2/2B2 Part measuring with an extent of 761.1 Sq.ft., to and in favour of Mrs.Prema under a Sale Deed vide dated 02.09.2011 and registered as Document No.5689 of 2011."
     case "sale": return `The said ${X} ${px.has}${jt} sold and conveyed ${land} to and in favour of ${Y} under a Sale Deed${dated}.`;
     // "The said Mr.Bhakthavachalam … has settled the land to and in favour of her daughter Mrs.Yasodhammal under a Settlement Deed vide dated … and registered as Document No.774 of 1978."
+    // "The said Mrs.Kannammal and Mr.Ramamurthy had exchanged some of the lands between them and for the land, Measuring with an extent of 33 cents in S.No.227/3A2 "B" Schedule mentioned property was allotted to Mr.Ramamurthy, under a Exchange Deed dated 09.07.2003 and registered as Document No.1777 of 2003."
+    case "exchange": { const sc = (r.desc.match(/["“”']?\b([A-H])\b["“”']?\s*[-–]?\s*schedule/i) || [])[1];
+      const to = (r.desc.match(/allotted\s+to\s+(.+?)(?=\s*\(|,|\s+vide\b|\s+dated\b|$)/i) || [])[1] || p.Y;
+      const who = (r.desc.match(/(?:between|executed\s+by)\s+(.+?)(?=\s*\(|\s+allotted\b|\s+to\s+(?:and\s+)?in\s+favou?r|\s+in\s+favou?r|\s+vide\b|\s+dated\b|$)/i) || [])[1] || p.X;
+      return `The said ${ph(who,"name")} had exchanged some of the lands between them and for the land, ${comp ? comp + " " : ""}${sc ? `"${sc.toUpperCase()}" Schedule mentioned property` : "the said property"} was allotted to ${ph(to,"name")}, under a Exchange Deed dated ${date}${reg}.`; }
+    case "possession": return `Whereas ${Y} ${py.has} obtained the Possession Certificate in ${py.his} name${p.issuer ? ` and the same was issued by ${p.issuer}` : ""} dated ${date} for the above said property${comp ? `, ${comp}` : ""}.`;
     // Sale cum Construction Agreement:
     // "Subsequently the Mr.Kishore Kumar and Mr.Vijayakumar (Builder) has entered into a Sale cum Construction Agreement vide dated 19.11.2026 along with Mr.Jagathish in respect of the land Comprised in …, and the same needs to be registered as Sale Deed."
     case "salecon": { const sc = saleConParties(r.desc), sx = sc.X || p.X, sy = sc.Y || p.Y;
@@ -883,8 +919,21 @@ function draftRows(){ return state.rows.filter(r => r.kind !== "header" && r.mar
 // the flow in order: headers as they appear in the list, then their documents.
 // After a survey-number header the chain starts again with "The said schedule mentioned property situated at …";
 // after a "Common documents" header the flow simply continues.
+// survey number and extent for a row: the survey column, or failing that the S.No. / extent written in the document's own text
+const SV_IN_DESC = /((?:Old\s+|New\s+)?(?:R\.|T\.)?(?:S\.?\s?Nos?|Survey\s+Nos?|Sy\.?\s?Nos?)\.?\s*\d[\dA-Za-z\/\-]*(?:\s*(?:,|&|and)\s*(?:(?:Old\s+|New\s+)?(?:T\.)?S\.?\s?Nos?\.?\s*)?\d[\dA-Za-z\/\-]*)*(?:\s*\(?\s*Part\s*\)?)?(?:\s*,?\s*(?:bearing\s+)?Plot\s*No\.?\s*[\w\/\-]+)?(?:\s*,?\s*(?:measuring\s+(?:with\s+)?an\s+extent\s+of|admeasuring|[-–—])\s*(?:Acres?\s+)?[\d.,½¼¾\/]+\s*(?:Sq\.?\s?ft\.?|Sq\.?\s?Feet|Sq\.?\s?Mtrs?\.?|Cents?|Acres?|Hectares?|Grounds?)(?:\s*\d[\d.,]*\s*Cents?)?)?)/i;
+function surveyOf(r){
+  if((r.survey || "").trim()) return r.survey.trim();
+  const m = String(r.desc || "").match(SV_IN_DESC);
+  return m ? m[1].replace(/[\s,;]+$/, "").trim() : "";
+}
+// the same document listed more than once (same Doc.No., or same document and date) is written only once
+function docKey(r){
+  const dn = partiesOf(r.desc || "").docno;
+  if(dn) return "D:" + dn.replace(/^\w+\s+(?=Document)/, "").toLowerCase();
+  return "T:" + String(r.desc || "").toLowerCase().replace(/[^a-z0-9]+/g, "") + "|" + String(r.date || "").replace(/\D/g, "");
+}
 function flowPlan(){
-  const plan = []; let first = true;
+  const plan = []; let first = true; const seen = new Set();
   state.rows.forEach(r => {
     if(r.kind === "header"){
       if(!(r.text||"").trim()) return;
@@ -893,9 +942,13 @@ function flowPlan(){
       return;
     }
     if(r.mark === "red" || !(r.desc||"").trim()) return;
+    const k = docKey(r);
+    if(seen.has(k)) return;                              // repeated document
+    seen.add(k);
     plan.push({kind:"doc", row:r, isFirst:first}); first = false;
   });
-  return plan;
+  // a header left with no documents under it (all repeats) is dropped
+  return plan.filter((it, i) => it.kind !== "header" || (plan[i+1] && plan[i+1].kind === "doc"));
 }
 function headerPara(r){ return { id: uid(), row: r.id, kind:"header", text: r.text.trim(), frags: (r.frags||[]).map(f=>({...f})), note:false }; }
 /* Highlights: only what was highlighted in the sheet is highlighted in the flow.
@@ -961,7 +1014,19 @@ function cleanFlowText(text, r){
   t = t.replace(/,?\s*(?:vide\s+dated|dated|vide|on)\s+(\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4})\b/gi, (m, d) => source.includes(d) ? m : "");
   return t.replace(/\.{2,}(?=\s|$)/g, ".").replace(/\s+([,.;])/g, "$1").replace(/,\s*,/g, ",").replace(/,\s*\./g, ".").replace(/\s{2,}/g, " ").replace(/\bthe said\s+(has|have)\b/gi, "the said owner $1").trim();
 }
-function paraFromRow(r, text){ text = cleanFlowText(r.type === "jv" ? text : fixAreaDashes(text), r); return { id: uid(), row: r.id, text, frags: rowFrags(r).map(f=>({...f})), note: r.mark === "yellow" }; }
+// every document with a Doc.No. in the list mentions it
+function ensureDocNo(text, r){
+  const dn = partiesOf(r.desc || "").docno; if(!dn) return text;
+  const m = dn.match(/No\.(\d+) of (\d{4})/); if(!m) return text;
+  if(new RegExp(`\\b${m[1]}\\s*(?:of|\\/)\\s*${m[2]}\\b`).test(text)) return text;
+  // certificates, receipts and revenue records are not "registered": they carry the number as "vide Doc.No.55/2015"
+  const notDeed = /^(death|tax|eb|patta|possession|rera|layout|ec)$/.test(r.type);
+  const say = notDeed ? `vide Doc.No.${m[1]}/${m[2]}` : `and registered as ${dn}`;
+  const at = text.match(/\b(?:vide\s+)?dated\s+\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}/i);
+  if(at) return text.replace(at[0], `${at[0]} ${say}`);
+  return text.replace(/\.\s*$/, "") + `, ${notDeed ? say : "vide " + dn}.`;
+}
+function paraFromRow(r, text){ text = ensureDocNo(cleanFlowText(r.type === "jv" ? text : fixAreaDashes(text), r), r); return { id: uid(), row: r.id, text, frags: rowFrags(r).map(f=>({...f})), note: r.mark === "yellow" }; }
 
 function draftWithRules(){
   const rows = draftRows();
@@ -1006,6 +1071,9 @@ RULES (follow strictly):
 23. Death / Legal Heir Certificate rows: name the legal heirs (from legal_heirs or the row's text), e.g. "Subsequently, on 31.08.2001, Mr.Palani, died intestate leaving behind Mr.Madurai Muthu, Mr.Vembuli and Mrs.Annapoorani as his only legal heirs. … After the death of Late Mr.Palani his legal heirs Mr.Madurai Muthu, Mr.Vembuli and Mrs.Annapoorani became the joint owners of the said property."
 24. RERA certificate: "The Tamil Nadu Real Estate Regulation Authority Registration Certificate of Project No.TN/01/Layout/0354/2021 vide dated 22.09.2021 in the name of M/s.VGN Infrastructure Private Limited produced to us."
 25. Layout plan / planning permit: "The said Mr.J.Jaganathan had converted the above said properties into a Housing Plots and the said Layout has been approved by the Chennai Metropolitan Development Authority vide., approval No.PPD/L.O.136 of 2003 Letter No.L1/36502/2003 dated 12/12/2003. The Planning permit is produced and it is confirms the same."
+27. First (root) document that is not a sale deed: use the format file's first-document clause for that type (First Partition Deed, First Release Deed, First Settlement Deed, First Will, First Exchange Deed, First Possession Certificate, First Patta), still beginning "The said schedule mentioned property situated at <Village, Taluk, District>, Comprised in <survey no. and extent>,". E.g. partition: "… was originally owned and possessed by Mrs.Savithri and 3 others along with their Family members through their ancestral property and they have entered into a Partition Deed dated 03.11.2008 and registered as Document No.8420 of 2008 with their family members and the A-Schedule was allotted to them for the land."; release: "… was originally owned and possessed by Mrs.Roobavathi through her Self Acquired property by way of Release Deed vide dated 20.03.2003 and registered as Document No.2027 of 2003 released from her family members Mrs.Mariyammal and 4 others."
+28. Every document that has a document number in the row must state it ("registered as Document No.<n> of <year>").
+29. Never write the same document twice: if the list repeats a document (same Doc.No., or same document and date), write it once.
 18. Survey number details: every paragraph whose row has survey_no_and_extent must state those survey number details, word for word.
 19. Cancellations: when the row is a Cancellation of a document (e.g. "Cancellation of Settlement Deed", "Cancellation of Sale Deed"), the word "Cancellation" must appear with the document's name: "Subsequently the said <X> has cancelled the same by a Cancellation of Settlement Deed vide dated … and registered as Document No.… of …".
 20. Mutation of revenue records: write "After the said purchase it appears that mutation of Revenue records took place …" only when the document before it is a sale deed; otherwise write "Whereas it appears that mutation of Revenue records took place …" and never mention a purchase.
