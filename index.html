@@ -941,9 +941,18 @@ function draftRows(){ return state.rows.filter(r => r.kind !== "header" && r.mar
 // survey number and extent for a row: the survey column, or failing that the S.No. / extent written in the document's own text
 const SV_IN_DESC = /((?:Old\s+|New\s+)?(?:R\.|T\.)?(?:S\.?\s?Nos?|Survey\s+Nos?|Sy\.?\s?Nos?)\.?\s*\d[\dA-Za-z\/\-]*(?:\s*(?:,|&|and)\s*(?:(?:Old\s+|New\s+)?(?:T\.)?S\.?\s?Nos?\.?\s*)?\d[\dA-Za-z\/\-]*)*(?:\s*\(?\s*Part\s*\)?)?(?:\s*,?\s*(?:bearing\s+)?Plot\s*No\.?\s*[\w\/\-]+)?(?:\s*,?\s*(?:measuring\s+(?:with\s+)?an\s+extent\s+of|admeasuring|[-–—])\s*(?:Acres?\s+)?[\d.,½¼¾\/]+\s*(?:Sq\.?\s?ft\.?|Sq\.?\s?Feet|Sq\.?\s?Mtrs?\.?|Cents?|Acres?|Hectares?|Grounds?)(?:\s*\d[\d.,]*\s*Cents?)?)?)/i;
 function surveyOf(r){
-  if((r.survey || "").trim()) return r.survey.trim();
+  if((r.survey || "").trim()) return trimScheduleAddress(r.survey.trim());
   const m = String(r.desc || "").match(SV_IN_DESC);
   return m ? m[1].replace(/[\s,;]+$/, "").trim() : "";
+}
+// an address written inside the schedule ("… situated at Door No.12, 3rd Street, …, Padi Village, Ambattur Taluk, Chennai District")
+// keeps only its village, taluk and district; flat / door / street details are left out
+function trimScheduleAddress(t){
+  const same = a => String(a||"").toLowerCase().replace(/[^a-z]+/g, "");
+  return String(t).replace(/,?\s*(situated\s+at\s+)([^]*?\bDistrict)\b/i, (m0, at, addr) => {
+    const short = simplifyAddress(addr);
+    return same(short) === same(state.address) ? "" : ` ${at}${short}`;       // already said at the start of the flow
+  }).replace(/\s{2,}/g, " ").trim();
 }
 // the same document listed more than once (same Doc.No., or same document and date) is written only once
 function docKey(r){
